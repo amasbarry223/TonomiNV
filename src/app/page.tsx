@@ -25,6 +25,9 @@ import ContactPage from '@/components/contact/ContactPage'
 import CatalogPage from '@/components/catalog/CatalogPage'
 import ProductPage from '@/components/product/ProductPage'
 
+// Admin components
+import AdminLayout from '@/components/admin/AdminLayout'
+
 const pageVariants = {
   initial: { opacity: 0, y: 8, filter: 'blur(4px)' },
   animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
@@ -54,6 +57,11 @@ function HomePage() {
 
 export default function Home() {
   const { currentPage } = useNavStore()
+
+  // Admin page has its own layout (no Navbar/Footer)
+  if (currentPage === 'admin') {
+    return <AdminLayout />
+  }
 
   const renderPage = () => {
     switch (currentPage) {

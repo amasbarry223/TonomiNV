@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Heart, ShoppingBag, Menu } from 'lucide-react'
+import { Search, Heart, ShoppingBag, Menu, Settings } from 'lucide-react'
 import { useNavStore, type PageName } from '@/stores/nav-store'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
@@ -138,6 +138,17 @@ export default function Navbar() {
                       {cartCount}
                     </Badge>
                   )}
+                </motion.button>
+
+                {/* Admin */}
+                <motion.button
+                  onClick={() => handleNavClick('admin')}
+                  className="relative p-2 rounded-full text-text-mid hover:text-caramel hover:bg-beige/50 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  aria-label="Administration"
+                >
+                  <Settings className="w-5 h-5" />
                 </motion.button>
 
                 {/* Mobile Menu Toggle */}
