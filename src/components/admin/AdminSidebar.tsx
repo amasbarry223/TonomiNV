@@ -1,7 +1,7 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useAdminStore, type AdminPage } from '@/stores/admin-store'
-import { useNavStore } from '@/stores/nav-store'
 import {
   LayoutDashboard,
   Package,
@@ -37,7 +37,11 @@ const navItems: { page: AdminPage; label: string; icon: React.ReactNode }[] = [
 
 export default function AdminSidebar({ collapsed, isMobile }: AdminSidebarProps) {
   const { currentPage, navigate, toggleSidebar } = useAdminStore()
-  const { goHome } = useNavStore()
+  const router = useRouter()
+
+  const goHome = () => {
+    router.push('/')
+  }
 
   return (
     <aside

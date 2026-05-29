@@ -1,7 +1,7 @@
 'use client'
 
 import { useAdminStore } from '@/stores/admin-store'
-import { useNavStore } from '@/stores/nav-store'
+import { useRouter } from 'next/navigation'
 import { Menu, Bell, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,9 @@ import { useState, useEffect } from 'react'
 
 export default function AdminHeader() {
   const { toggleSidebar } = useAdminStore()
-  const { goHome } = useNavStore()
+  const router = useRouter()
+
+  const goHome = () => router.push('/')
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {

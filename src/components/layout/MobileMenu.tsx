@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { X, Instagram, Facebook, MessageCircle, Settings } from 'lucide-react'
 import { type PageName } from '@/stores/nav-store'
+import { useRouter } from 'next/navigation'
 
 const navLinks: { label: string; page: PageName }[] = [
   { label: 'Accueil', page: 'home' },
@@ -51,6 +52,7 @@ interface MobileMenuProps {
 }
 
 export default function MobileMenu({ onClose, currentPage, onNavigate }: MobileMenuProps) {
+  const router = useRouter()
   return (
     <motion.div
       className="fixed inset-0 z-[60] bg-cream"
@@ -126,7 +128,10 @@ export default function MobileMenu({ onClose, currentPage, onNavigate }: MobileM
         {/* Admin Link */}
         <motion.div variants={itemVariants} className="w-full">
           <button
-            onClick={() => onNavigate('admin')}
+            onClick={() => {
+              onClose()
+              router.push('/admin')
+            }}
             className={`font-[family-name:var(--font-dm-sans)] text-lg py-3 transition-colors flex items-center gap-3 ${
               currentPage === 'admin'
                 ? 'text-caramel font-semibold'
