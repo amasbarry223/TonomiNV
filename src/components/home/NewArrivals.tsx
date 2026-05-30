@@ -2,54 +2,17 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, ChevronLeft, ChevronRight, Sparkles, AlertCircle } from 'lucide-react'
-import type { Product } from '@/data/products'
+import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
+import { getNewProducts, type Product } from '@/data/products'
 import { useNavStore } from '@/stores/nav-store'
 import ProductCard from './ProductCard'
-import { Skeleton } from '@/components/ui/skeleton'
-
-function CardSkeleton() {
-  return (
-    <div className="flex-shrink-0 w-64 sm:w-72">
-      <div className="glass-card overflow-hidden">
-        <Skeleton className="aspect-[3/4] rounded-none" />
-        <div className="p-4 space-y-2">
-          <Skeleton className="h-3 w-3/4" />
-          <Skeleton className="h-3 w-1/2" />
-          <Skeleton className="h-5 w-2/3" />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function NewArrivals() {
-  const [newProducts, setNewProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [newProducts] = useState<Product[]>(() => getNewProducts())
   const { goCatalog } = useNavStore()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(true)
-
-  useEffect(() => {
-    async function fetchNewProducts() {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await fetch('/api/products?limit=100')
-        if (!res.ok) throw new Error('Failed to fetch products')
-        const data = await res.json()
-        const filtered = (data.products as Product[]).filter((p) => p.isNew)
-        setNewProducts(filtered)
-      } catch {
-        setError('Impossible de charger les nouvelles arrivées')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchNewProducts()
-  }, [])
 
   const checkScroll = useCallback(() => {
     if (!scrollRef.current) return
@@ -59,10 +22,10 @@ export default function NewArrivals() {
   }, [])
 
   useEffect(() => {
-    if (!loading && newProducts.length > 0) {
+    if (newProducts.length > 0) {
       checkScroll()
     }
-  }, [loading, newProducts, checkScroll])
+  }, [newProducts.length, checkScroll])
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return
@@ -74,27 +37,9 @@ export default function NewArrivals() {
     setTimeout(checkScroll, 400)
   }
 
-  const handleRetry = () => {
-    setNewProducts([])
-    setLoading(true)
-    setError(null)
-    fetch('/api/products?limit=100')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed')
-        return res.json()
-      })
-      .then((data) => {
-        const filtered = (data.products as Product[]).filter((p) => p.isNew)
-        setNewProducts(filtered)
-      })
-      .catch(() => setError('Impossible de charger les nouvelles arrivées'))
-      .finally(() => setLoading(false))
-  }
-
   return (
     <section className="py-16 sm:py-20 bg-warm-white">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <motion.div
           className="flex items-end justify-between mb-10"
           initial={{ opacity: 0, y: 20 }}
@@ -141,43 +86,22 @@ export default function NewArrivals() {
           </div>
         </motion.div>
 
-        {/* Carousel */}
-        {loading ? (
-          <div className="flex gap-4 sm:gap-6 overflow-hidden pb-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <AlertCircle className="w-10 h-10 text-caramel/50 mb-3" />
-            <p className="font-[family-name:var(--font-dm-sans)] text-text-mid text-sm mb-4">{error}</p>
-            <button
-              onClick={handleRetry}
-              className="btn-gold px-6 py-2.5 text-sm"
-            >
-              Réessayer
-            </button>
-          </div>
-        ) : (
-          <div
-            ref={scrollRef}
-            onScroll={checkScroll}
-            className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
-            style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-            }}
-          >
-            {newProducts.map((product, index) => (
-              <div key={product.id} className="flex-shrink-0 w-64 sm:w-72 snap-start">
-                <ProductCard product={product} index={index} />
-              </div>
-            ))}
-          </div>
-        )}
+        <div
+          ref={scrollRef}
+          onScroll={checkScroll}
+          className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0"
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+        >
+          {newProducts.map((product, index) => (
+            <div key={product.id} className="flex-shrink-0 w-64 sm:w-72 snap-start">
+              <ProductCard product={product} index={index} />
+            </div>
+          ))}
+        </div>
 
-        {/* Voir tout */}
         <motion.div
           className="mt-8 text-center"
           initial={{ opacity: 0 }}

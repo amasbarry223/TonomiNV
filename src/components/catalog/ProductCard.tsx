@@ -1,35 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, ShoppingBag, Star, Eye } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import type { Product } from '@/data/products'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { useNavStore } from '@/stores/nav-store'
+import { formatPrice, PRODUCT_BADGE_CONFIG } from '@/lib/product-display'
+import { ProductImage } from '@/components/ui/product-image'
 
 interface ProductCardProps {
   product: Product
   onQuickView?: (product: Product) => void
 }
 
-const formatPrice = (price: number) => price.toLocaleString('fr-FR') + ' FCFA'
-
-const badgeConfig: Record<string, { label: string; className: string }> = {
-  nouveau: { label: 'Nouveau', className: 'bg-emerald-500 text-white' },
-  promo: { label: 'Promo', className: 'bg-caramel text-white' },
-  epuise: { label: 'Épuisé', className: 'bg-gray-400 text-white' },
-}
-
-export default function ProductCard({ product, onQuickView }: ProductCardProps) {
+function ProductCard({ product, onQuickView }: ProductCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [addingToCart, setAddingToCart] = useState(false)
-  const { addItem } = useCartStore()
-  const { isInWishlist, toggleItem } = useWishlistStore()
-  const { goProduct } = useNavStore()
+  const addItem = useCartStore((s) => s.addItem)
+  const toggleItem = useWishlistStore((s) => s.toggleItem)
+  const inWishlist = useWishlistStore((s) =>
+    s.items.some((i) => i.productId === product.id)
+  )
+  const goProduct = useNavStore((s) => s.goProduct)
 
-  const inWishlist = isInWishlist(product.id)
   const isOutOfStock = product.stock === 0
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
@@ -87,7 +82,7 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
     ))
   }
 
-  const badge = product.badge ? badgeConfig[product.badge] : null
+  const badge = product.badge ? PRODUCT_BADGE_CONFIG[product.badge] : null
 
   return (
     <motion.div
@@ -100,13 +95,15 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
       transition={{ duration: 0.4 }}
       whileTap={{ scale: 0.98 }}
     >
-      {/* Image Container */}
       <div className="relative aspect-[3/4] bg-gradient-to-br from-beige to-gold/20 overflow-hidden">
-        <div className="product-image w-full h-full flex items-center justify-center">
-          <ShoppingBag className="w-12 h-12 text-gold/30" />
-        </div>
+        <ProductImage
+          src={product.images[0]}
+          alt={product.name}
+          fill
+          sizes="(max-width: 768px) 50vw, 25vw"
+          className="product-image object-cover"
+        />
 
-        {/* Badge */}
         {badge && (
           <span
             className={`absolute top-3 left-3 text-xs font-[family-name:var(--font-dm-sans)] font-semibold px-3 py-1 rounded-full z-10 ${badge.className}`}
@@ -115,7 +112,6 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
           </span>
         )}
 
-        {/* Wishlist Button */}
         <motion.button
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 flex items-center justify-center hover:bg-white transition-colors z-10"
           onClick={handleWishlistToggle}
@@ -130,7 +126,6 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
           />
         </motion.button>
 
-        {/* Quick View Button */}
         {onQuickView && (
           <motion.button
             className="absolute top-14 right-3 w-8 h-8 rounded-full bg-white/80 flex items-center justify-center hover:bg-white transition-colors z-10"
@@ -146,7 +141,6 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
           </motion.button>
         )}
 
-        {/* Quick Add to Cart */}
         <motion.div
           className="quick-add absolute bottom-0 left-0 right-0 p-3 z-10"
           onClick={handleAddToCart}
@@ -169,7 +163,6 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
         </motion.div>
       </div>
 
-      {/* Info */}
       <div className="p-4">
         <p className="font-[family-name:var(--font-dm-sans)] text-[10px] uppercase tracking-widest text-text-mid/60 mb-1">
           {product.category}
@@ -203,3 +196,5 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
     </motion.div>
   )
 }
+
+export default memo(ProductCard)

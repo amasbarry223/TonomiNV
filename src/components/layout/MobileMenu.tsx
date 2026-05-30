@@ -1,8 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { X, Instagram, Facebook, MessageCircle, Settings } from 'lucide-react'
-import { type PageName, useNavStore } from '@/stores/nav-store'
+import { X, Instagram, Facebook, MessageCircle } from 'lucide-react'
+import { type PageName } from '@/stores/nav-store'
 
 const navLinks: { label: string; page: PageName }[] = [
   { label: 'Accueil', page: 'home' },
@@ -51,7 +51,6 @@ interface MobileMenuProps {
 }
 
 export default function MobileMenu({ onClose, currentPage, onNavigate }: MobileMenuProps) {
-  const { goAdmin } = useNavStore()
   return (
     <motion.div
       className="fixed inset-0 z-[60] bg-cream"
@@ -117,30 +116,6 @@ export default function MobileMenu({ onClose, currentPage, onNavigate }: MobileM
             </button>
           </motion.div>
         ))}
-
-        {/* Divider */}
-        <motion.div
-          variants={itemVariants}
-          className="w-16 h-px bg-gold/30 my-6"
-        />
-
-        {/* Admin Link */}
-        <motion.div variants={itemVariants} className="w-full">
-          <button
-            onClick={() => {
-              onClose()
-              goAdmin()
-            }}
-            className={`font-[family-name:var(--font-dm-sans)] text-lg py-3 transition-colors flex items-center gap-3 ${
-              currentPage === 'admin'
-                ? 'text-caramel font-semibold'
-                : 'text-text-mid hover:text-caramel'
-            }`}
-          >
-            <Settings className="w-5 h-5" />
-            Administration
-          </button>
-        </motion.div>
 
         {/* Social Divider */}
         <motion.div

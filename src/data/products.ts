@@ -1,3 +1,5 @@
+import { assignCoherentProductImages } from './product-image-map'
+
 export interface Product {
   id: string;
   name: string;
@@ -18,7 +20,7 @@ export interface Product {
   material: string;
 }
 
-export const products: Product[] = [
+const catalogProducts: Product[] = [
   // ===== BIJOUX (Jewelry) =====
   {
     id: "prod-001",
@@ -714,8 +716,21 @@ export const products: Product[] = [
   },
 ];
 
+export const products: Product[] = assignCoherentProductImages(catalogProducts)
+
+export const productsById = new Map<string, Product>(
+  products.map((p) => [p.id, p])
+);
+
+export const productsByCategory = new Map<string, Product[]>();
+for (const product of products) {
+  const list = productsByCategory.get(product.category) ?? [];
+  list.push(product);
+  productsByCategory.set(product.category, list);
+}
+
 export function getProductById(id: string): Product | undefined {
-  return products.find((p) => p.id === id);
+  return productsById.get(id);
 }
 
 export function getProductBySlug(slug: string): Product | undefined {
@@ -723,7 +738,7 @@ export function getProductBySlug(slug: string): Product | undefined {
 }
 
 export function getProductsByCategory(category: string): Product[] {
-  return products.filter((p) => p.category === category);
+  return productsByCategory.get(category) ?? [];
 }
 
 export function getNewProducts(): Product[] {

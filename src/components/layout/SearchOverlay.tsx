@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X, Loader2 } from 'lucide-react'
+import { searchProducts } from '@/data/products'
+import { formatPrice } from '@/lib/product-display'
 import { useNavStore } from '@/stores/nav-store'
+import { ProductImage } from '@/components/ui/product-image'
 
 interface SearchResult {
   id: string
@@ -16,63 +19,48 @@ interface SearchResult {
 
 export default function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [loading, setLoading] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const { goProduct } = useNavStore()
 
-  // Focus input when opened
+  const loading = query.trim() !== debouncedQuery.trim()
+
+  const results = useMemo<SearchResult[]>(() => {
+    if (!debouncedQuery.trim()) return []
+    return searchProducts(debouncedQuery).slice(0, 5)
+  }, [debouncedQuery])
+
+  const handleClose = useCallback(() => {
+    setQuery('')
+    setDebouncedQuery('')
+    onClose()
+  }, [onClose])
+
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100)
-    } else {
-      setQuery('')
-      setResults([])
     }
   }, [open])
 
-  // Debounced search
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([])
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        setLoading(true)
-        const res = await fetch(`/api/products?search=${encodeURIComponent(query)}&limit=5`)
-        if (res.ok) {
-          const data = await res.json()
-          setResults(data.products || [])
-        }
-      } catch {
-        // silently fail
-      } finally {
-        setLoading(false)
-      }
-    }, 300)
-
+    const timer = setTimeout(() => setDebouncedQuery(query), 300)
     return () => clearTimeout(timer)
   }, [query])
 
-  // Handle escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
     }
     if (open) {
       window.addEventListener('keydown', handleKeyDown)
       return () => window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open, onClose])
+  }, [open, handleClose])
 
   const handleSelect = useCallback((product: SearchResult) => {
     goProduct(product.id)
-    onClose()
-  }, [goProduct, onClose])
-
-  const formatPrice = (price: number) => price.toLocaleString('fr-FR') + ' FCFA'
+    handleClose()
+  }, [goProduct, handleClose])
 
   const categoryNameMap: Record<string, string> = {
     bijoux: 'Bijoux',
@@ -93,7 +81,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={handleClose}
           />
 
           {/* Search Overlay */}
@@ -127,7 +115,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
                     <Loader2 className="w-5 h-5 text-gold animate-spin flex-shrink-0" />
                   )}
                   <button
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="p-1.5 rounded-full hover:bg-gold/10 transition-colors flex-shrink-0"
                     aria-label="Fermer"
                   >
@@ -156,12 +144,15 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
                             transition={{ delay: idx * 0.05 }}
                           >
                             {/* Product Image */}
-                            <div className="w-10 h-10 rounded-lg overflow-hidden bg-beige/40 flex-shrink-0">
+                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-beige/40 flex-shrink-0">
                               {product.images && product.images.length > 0 ? (
-                                <img
+                                <ProductImage
                                   src={product.images[0]}
                                   alt={product.name}
-                                  className="w-full h-full object-cover"
+                                  width={40}
+                                  height={40}
+                                  sizes="40px"
+                                  className="object-cover"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">

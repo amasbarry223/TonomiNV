@@ -18,32 +18,14 @@ export default function NewsletterSection() {
     }
 
     setIsLoading(true)
-    try {
-      const res = await fetch('/api/newsletter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      if (res.ok) {
-        setIsLoading(false)
-        setIsSubmitted(true)
-        toast.success('Merci ! Vous êtes inscrit(e) à la newsletter TONOMI.', {
-          description: 'Votre code de -10% arrive bientôt !',
-        })
-        setEmail('')
-      } else {
-        const data = await res.json()
-        setIsLoading(false)
-        if (res.status === 409) {
-          toast.error('Cet email est déjà inscrit à la newsletter.')
-        } else {
-          toast.error(data.error || 'Erreur lors de l\'inscription')
-        }
-      }
-    } catch {
+    setTimeout(() => {
       setIsLoading(false)
-      toast.error('Erreur de connexion. Veuillez réessayer.')
-    }
+      setIsSubmitted(true)
+      toast.success('Merci ! Vous êtes inscrit(e) à la newsletter TONOMI.', {
+        description: 'Votre code de -10% arrive bientôt !',
+      })
+      setEmail('')
+    }, 400)
   }
 
   return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useMemo, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ComposableMap,
@@ -149,6 +149,64 @@ const activeCountries: CountryInfo[] = [
 
 const activeIds = new Set(activeCountries.map((c) => c.id))
 
+function buildGeographyStyle(isActive: boolean) {
+  return {
+    default: {
+      fill: isActive ? '#D4AF6A' : '#F0E6D3',
+      stroke: '#FFFFFF',
+      strokeWidth: 0.5,
+      outline: 'none',
+      cursor: isActive ? 'pointer' : 'default',
+    },
+    hover: {
+      fill: isActive ? '#E8C547' : '#F0E6D3',
+      stroke: isActive ? '#C8956C' : '#FFFFFF',
+      strokeWidth: isActive ? 1.5 : 0.5,
+      outline: 'none',
+      cursor: isActive ? 'pointer' : 'default',
+    },
+    pressed: {
+      fill: isActive ? '#C8956C' : '#F0E6D3',
+      outline: 'none',
+    },
+  }
+}
+
+const MapGeography = memo(function MapGeography({
+  geo,
+  isActive,
+  isHovered,
+  onMouseEnter,
+  onMouseLeave,
+  onMouseMove,
+  onSelectCountry,
+}: {
+  geo: { id: string; rsmKey: string; [key: string]: unknown }
+  isActive: boolean
+  isHovered: boolean
+  onMouseEnter: (geo: { id: string }) => void
+  onMouseLeave: () => void
+  onMouseMove: (e: React.MouseEvent) => void
+  onSelectCountry: (country: CountryInfo) => void
+}) {
+  const style = useMemo(() => buildGeographyStyle(isActive), [isActive])
+
+  return (
+    <Geography
+      geography={geo}
+      onMouseEnter={() => onMouseEnter(geo)}
+      onMouseLeave={onMouseLeave}
+      onMouseMove={onMouseMove as React.MouseEventHandler<SVGPathElement>}
+      onClick={() => {
+        const country = activeCountries.find((c) => c.id === geo.id)
+        if (country) onSelectCountry(country)
+      }}
+      style={style}
+      tabIndex={isHovered ? 0 : -1}
+    />
+  )
+})
+
 const stats = [
   { icon: Globe2, value: '11', label: 'Pays', description: 'présence internationale' },
   { icon: Truck, value: '5000+', label: 'Livraisons', description: 'dans la sous-région' },
@@ -172,12 +230,14 @@ export default function PresenceSection() {
     setTooltipPos(null)
   }, [])
 
-  const handleGeographyMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+  const moveRafRef = useRef<number | null>(null)
+  const handleGeographyMouseMove = useCallback((e: React.MouseEvent) => {
+    if (moveRafRef.current !== null) return
+    moveRafRef.current = requestAnimationFrame(() => {
       setTooltipPos({ x: e.clientX, y: e.clientY })
-    },
-    []
-  )
+      moveRafRef.current = null
+    })
+  }, [])
 
   const handleMarkerClick = useCallback((country: CountryInfo) => {
     setSelectedCountry(country)
@@ -266,48 +326,18 @@ export default function PresenceSection() {
                 <ZoomableGroup zoom={1} maxZoom={4} minZoom={0.8}>
                   <Geographies geography={geoUrl}>
                     {({ geographies }) =>
-                      geographies.map((geo) => {
-                        const isActive = activeIds.has(geo.id)
-                        const isHovered = hoveredCountry?.id === geo.id
-                        return (
-                          <Geography
-                            key={geo.rsmKey}
-                            geography={geo}
-                            onMouseEnter={() => handleGeographyMouseEnter(geo)}
-                            onMouseLeave={handleGeographyMouseLeave}
-                            onMouseMove={handleGeographyMouseMove as any}
-                            onClick={() => {
-                              const country = activeCountries.find((c) => c.id === geo.id)
-                              if (country) setSelectedCountry(country)
-                            }}
-                            style={{
-                              default: {
-                                fill: isActive
-                                  ? '#D4AF6A'
-                                  : '#F0E6D3',
-                                stroke: '#FFFFFF',
-                                strokeWidth: 0.5,
-                                outline: 'none',
-                                transition: 'all 0.3s ease',
-                                cursor: isActive ? 'pointer' : 'default',
-                              },
-                              hover: {
-                                fill: isActive
-                                  ? '#E8C547'
-                                  : '#F0E6D3',
-                                stroke: isActive ? '#C8956C' : '#FFFFFF',
-                                strokeWidth: isActive ? 1.5 : 0.5,
-                                outline: 'none',
-                                cursor: isActive ? 'pointer' : 'default',
-                              },
-                              pressed: {
-                                fill: isActive ? '#C8956C' : '#F0E6D3',
-                                outline: 'none',
-                              },
-                            }}
-                          />
-                        )
-                      })
+                      geographies.map((geo) => (
+                        <MapGeography
+                          key={geo.rsmKey}
+                          geo={geo}
+                          isActive={activeIds.has(geo.id)}
+                          isHovered={hoveredCountry?.id === geo.id}
+                          onMouseEnter={handleGeographyMouseEnter}
+                          onMouseLeave={handleGeographyMouseLeave}
+                          onMouseMove={handleGeographyMouseMove}
+                          onSelectCountry={setSelectedCountry}
+                        />
+                      ))
                     }
                   </Geographies>
 

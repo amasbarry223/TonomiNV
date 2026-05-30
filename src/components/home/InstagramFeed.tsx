@@ -2,14 +2,16 @@
 
 import { motion } from 'framer-motion'
 import { Instagram, Heart } from 'lucide-react'
+import { getProductImagePaths } from '@/data/product-image-map'
+import { ProductImage } from '@/components/ui/product-image'
 
 const instagramImages = [
   { src: '/images/instagram/insta-1.png', likes: 234 },
   { src: '/images/instagram/insta-2.png', likes: 189 },
   { src: '/images/instagram/insta-3.png', likes: 312 },
   { src: '/images/instagram/insta-4.png', likes: 156 },
-  { src: '/images/products/necklace-1.png', likes: 278 },
-  { src: '/images/products/bag-1.png', likes: 201 },
+  { src: getProductImagePaths('prod-005', 'bijoux', 1)[0], likes: 278 },
+  { src: getProductImagePaths('prod-009', 'sacs', 1)[0], likes: 201 },
 ]
 
 export default function InstagramFeed() {
@@ -53,11 +55,12 @@ export default function InstagramFeed() {
               transition={{ duration: 0.4, delay: index * 0.06 }}
               whileHover={{ scale: 1.03 }}
             >
-              <img
+              <ProductImage
                 src={image.src}
                 alt={`TONOMI Instagram ${index + 1}`}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                loading="lazy"
+                fill
+                sizes="120px"
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
               />
 
               {/* Hover overlay */}

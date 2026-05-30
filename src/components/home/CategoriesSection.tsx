@@ -1,59 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle } from 'lucide-react'
-import type { Category } from '@/data/categories'
+import { categories as staticCategories } from '@/data/categories'
 import { useNavStore } from '@/stores/nav-store'
-import { Skeleton } from '@/components/ui/skeleton'
-
-function CategorySkeleton() {
-  return (
-    <div className="relative rounded-2xl aspect-[4/5] overflow-hidden">
-      <Skeleton className="w-full h-full rounded-2xl" />
-    </div>
-  )
-}
+import { ProductImage } from '@/components/ui/product-image'
 
 export default function CategoriesSection() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const categories = staticCategories
   const { goCatalog } = useNavStore()
-
-  useEffect(() => {
-    async function fetchCategories() {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await fetch('/api/categories')
-        if (!res.ok) throw new Error('Failed to fetch categories')
-        const data = await res.json()
-        setCategories(data as Category[])
-      } catch {
-        setError('Impossible de charger les catégories')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchCategories()
-  }, [])
 
   const handleCategoryClick = (slug: string) => {
     goCatalog(slug)
-  }
-
-  const handleRetry = () => {
-    setLoading(true)
-    setError(null)
-    fetch('/api/categories')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed')
-        return res.json()
-      })
-      .then((data) => setCategories(data as Category[]))
-      .catch(() => setError('Impossible de charger les catégories'))
-      .finally(() => setLoading(false))
   }
 
   return (
@@ -78,26 +35,7 @@ export default function CategoriesSection() {
           </p>
         </motion.div>
 
-        {/* Grid */}
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <CategorySkeleton key={i} />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <AlertCircle className="w-10 h-10 text-caramel/50 mb-3" />
-            <p className="font-[family-name:var(--font-dm-sans)] text-text-mid text-sm mb-4">{error}</p>
-            <button
-              onClick={handleRetry}
-              className="btn-gold px-6 py-2.5 text-sm"
-            >
-              Réessayer
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
             {categories.map((category, index) => (
               <motion.div
                 key={category.id}
@@ -110,11 +48,12 @@ export default function CategoriesSection() {
                 whileHover={{ scale: 1.02 }}
               >
                 {/* Image */}
-                <img
+                <ProductImage
                   src={category.image}
                   alt={category.name}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  loading="lazy"
+                  fill
+                  sizes="(max-width: 640px) 50vw, 33vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-110"
                 />
 
                 {/* Overlay gradient */}
@@ -156,7 +95,6 @@ export default function CategoriesSection() {
               </motion.div>
             ))}
           </div>
-        )}
       </div>
     </section>
   )

@@ -7,23 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useFilterStore, AVAILABLE_COLORS, AVAILABLE_SIZES } from '@/stores/filter-store'
 import type { Category } from '@/data/categories'
-
-const formatPrice = (price: number) => price.toLocaleString('fr-FR') + ' FCFA'
-
-const colorSwatchMap: Record<string, string> = {
-  noir: '#1a1a1a',
-  blanc: '#FFFFFF',
-  or: '#D4AF6A',
-  argent: '#C0C0C0',
-  marron: '#8B4513',
-  terracotta: '#CC5500',
-  bordeaux: '#722F37',
-  bleu: '#2563EB',
-  vert: '#16A34A',
-  rose: '#F472B6',
-  jaune: '#EAB308',
-  multicolore: 'linear-gradient(135deg, #D4AF6A, #E8C547, #C8956C, #B87333)',
-}
+import { formatPrice, COLOR_SWATCH_MAP } from '@/lib/product-display'
 
 interface FilterSidebarProps {
   categories?: Category[]
@@ -137,7 +121,7 @@ export default function FilterSidebar({ categories = [] }: FilterSidebarProps) {
         <div className="flex flex-wrap gap-2">
           {AVAILABLE_COLORS.map((color) => {
             const isSelected = colors.includes(color.value)
-            const swatchColor = colorSwatchMap[color.value] || '#999'
+            const swatchColor = COLOR_SWATCH_MAP[color.value] || '#999'
             return (
               <motion.button
                 key={color.value}

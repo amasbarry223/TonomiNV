@@ -1,201 +1,275 @@
 'use client'
 
-import { useRef } from 'react'
-import { motion, useScroll, useTransform } from 'framer-motion'
-import { ArrowRight, ChevronDown, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from 'lucide-react'
 import { useNavStore } from '@/stores/nav-store'
+import { getProductImagePaths } from '@/data/product-image-map'
+import { ProductImage } from '@/components/ui/product-image'
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15, delayChildren: 0.2 },
-  },
+const SLIDE_INTERVAL_MS = 6000
+
+const slideVariants = {
+  enter: { opacity: 0, scale: 1.06 },
+  center: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 1.02 },
 }
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] },
-  },
+const textVariants = {
+  enter: { opacity: 0, y: 28 },
+  center: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -16 },
 }
 
 export default function HeroSection() {
   const { goCatalog, goPromotions } = useNavStore()
-  const sectionRef = useRef<HTMLElement>(null)
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start start', 'end start'],
-  })
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
 
-  const imageY = useTransform(scrollYProgress, [0, 1], [0, 150])
-  const imageScale = useTransform(scrollYProgress, [0, 1], [1, 1.1])
-  const textY = useTransform(scrollYProgress, [0, 1], [0, 60])
+  const slides = useMemo(
+    () => [
+      {
+        id: 'collection',
+        image: getProductImagePaths('prod-008', 'sacs', 1)[0],
+        badge: 'Collection 2025',
+        title: "L'élégance africaine",
+        highlight: 'réinventée',
+        description:
+          'Sacs en cuir exotique et finitions dorées, conçus au cœur du Mali.',
+        primary: { label: 'Découvrir la collection', onClick: () => goCatalog() },
+        secondary: { label: 'Nos promotions', onClick: () => goPromotions() },
+      },
+      {
+        id: 'bijoux',
+        image: getProductImagePaths('prod-005', 'bijoux', 1)[0],
+        badge: 'Bijoux',
+        title: 'Brillez avec',
+        highlight: 'audace',
+        description:
+          'Colliers, bracelets et boucles inspirés du savoir-faire mandingue.',
+        primary: {
+          label: 'Voir les bijoux',
+          onClick: () => goCatalog('bijoux'),
+        },
+      },
+      {
+        id: 'lifestyle',
+        image: getProductImagePaths('prod-013', 'foulards', 1)[0],
+        badge: 'Artisanat malien',
+        title: 'Tradition &',
+        highlight: 'modernité',
+        description:
+          'Wax, bazin et textiles nobles pour un style unique et affirmé.',
+        primary: {
+          label: 'Explorer les foulards',
+          onClick: () => goCatalog('foulards'),
+        },
+      },
+      {
+        id: 'flash',
+        image: getProductImagePaths('prod-009', 'sacs', 1)[0],
+        badge: 'Offre limitée',
+        title: 'Soldes',
+        highlight: 'exceptionnelles',
+        description: 'Jusqu’à –50 % sur une sélection de pièces iconiques TONOMI.',
+        primary: { label: 'Profiter des offres', onClick: () => goPromotions() },
+        secondary: { label: 'Tout le catalogue', onClick: () => goCatalog() },
+      },
+      {
+        id: 'cabas',
+        image: getProductImagePaths('prod-010', 'sacs', 1)[0],
+        badge: 'Best-seller',
+        title: 'Le cabas',
+        highlight: 'signature',
+        description:
+          'Volume généreux, cuir embossé et anses tressées pour le quotidien chic.',
+        primary: { label: 'Voir les sacs', onClick: () => goCatalog('sacs') },
+      },
+    ],
+    [goCatalog, goPromotions]
+  )
+
+  const goTo = useCallback(
+    (index: number) => {
+      setActiveIndex((index + slides.length) % slides.length)
+    },
+    [slides.length]
+  )
+
+  const next = useCallback(() => goTo(activeIndex + 1), [activeIndex, goTo])
+  const prev = useCallback(() => goTo(activeIndex - 1), [activeIndex, goTo])
+
+  useEffect(() => {
+    if (paused) return
+    const timer = setInterval(next, SLIDE_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [paused, next])
+
+  const slide = slides[activeIndex]
 
   return (
     <section
-      ref={sectionRef}
-      className="relative min-h-[100vh] flex items-center overflow-hidden particles-bg"
+      className="relative min-h-[100svh] overflow-hidden bg-black"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      aria-roledescription="carousel"
+      aria-label="Bannière principale"
     >
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-cream via-cream to-beige" />
+      {/* Slides background */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={slide.id}
+          variants={slideVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ duration: 0.85, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="absolute inset-0"
+        >
+          <ProductImage
+            src={slide.image}
+            alt=""
+            fill
+            priority={activeIndex === 0}
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/25" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+        </motion.div>
+      </AnimatePresence>
 
-      {/* Decorative slow-spinning gold circle */}
-      <div className="absolute top-20 right-10 w-72 h-72 opacity-10 pointer-events-none hidden lg:block">
-        <div className="w-full h-full rounded-full border-[3px] border-gold animate-spin-slow" />
-      </div>
-      <div className="absolute bottom-32 left-10 w-48 h-48 opacity-5 pointer-events-none hidden lg:block">
-        <div className="w-full h-full rounded-full border-2 border-caramel animate-spin-slow" style={{ animationDirection: 'reverse' }} />
-      </div>
-
-      {/* Decorative floating dots */}
-      <div className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-gold/30 animate-float" />
-      <div className="absolute top-1/3 right-1/3 w-3 h-3 rounded-full bg-gold/20 animate-float" style={{ animationDelay: '1s' }} />
-      <div className="absolute bottom-1/4 left-1/3 w-2 h-2 rounded-full bg-caramel/20 animate-float" style={{ animationDelay: '2s' }} />
-
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full py-24 sm:py-32">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-          {/* Text Content */}
+      {/* Content */}
+      <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-4 pb-28 pt-24 sm:px-6 sm:pb-32 sm:pt-28 lg:px-8">
+        <AnimatePresence mode="wait">
           <motion.div
-            style={{ y: textY }}
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="text-center lg:text-left"
+            key={slide.id}
+            variants={textVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            className="max-w-2xl"
           >
-            <motion.div variants={itemVariants} className="flex items-center justify-center lg:justify-start gap-2 mb-6">
-              <Sparkles className="w-4 h-4 text-gold" />
-              <span className="font-[family-name:var(--font-dm-sans)] text-sm text-gold tracking-[0.3em] uppercase">
-                Collection 2025
+            <div className="mb-5 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-gold" />
+              <span className="font-[family-name:var(--font-dm-sans)] text-xs font-semibold uppercase tracking-[0.35em] text-gold sm:text-sm">
+                {slide.badge}
               </span>
-              <Sparkles className="w-4 h-4 text-gold" />
-            </motion.div>
+            </div>
 
-            <motion.h1
-              variants={itemVariants}
-              className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-text-dark leading-[1.1]"
-            >
-              L&apos;élégance africaine{' '}
-              <span className="text-gold-gradient">réinventée</span>
-            </motion.h1>
+            <h1 className="font-[family-name:var(--font-playfair)] text-4xl font-bold leading-[1.08] text-white sm:text-5xl lg:text-6xl xl:text-7xl">
+              {slide.title}{' '}
+              <span className="text-gold-gradient">{slide.highlight}</span>
+            </h1>
 
-            <motion.p
-              variants={itemVariants}
-              className="mt-6 font-[family-name:var(--font-dm-sans)] text-base sm:text-lg text-text-mid max-w-xl mx-auto lg:mx-0 leading-relaxed"
-            >
-              Découvrez nos accessoires de mode haut de gamme, façonnés avec passion au cœur du Mali.
-            </motion.p>
+            <p className="mt-5 max-w-lg font-[family-name:var(--font-dm-sans)] text-base leading-relaxed text-white/85 sm:text-lg">
+              {slide.description}
+            </p>
 
-            <motion.div
-              variants={itemVariants}
-              className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4"
-            >
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <motion.button
-                className="btn-gold px-8 py-3.5 text-sm flex items-center gap-2"
-                onClick={() => goCatalog()}
+                type="button"
+                className="btn-gold flex items-center justify-center gap-2 px-8 py-3.5 text-sm"
+                onClick={slide.primary.onClick}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                Découvrir la Collection
-                <ArrowRight className="w-4 h-4" />
+                {slide.primary.label}
+                <ArrowRight className="h-4 w-4" />
               </motion.button>
-              <motion.button
-                className="px-8 py-3.5 text-sm font-[family-name:var(--font-dm-sans)] font-medium text-text-mid hover:text-gold border border-gold/30 rounded-[50px] transition-colors hover:border-gold"
-                onClick={() => goPromotions()}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Nos Promotions
-              </motion.button>
-            </motion.div>
+              {slide.secondary && (
+                <motion.button
+                  type="button"
+                  className="rounded-[50px] border border-white/40 px-8 py-3.5 font-[family-name:var(--font-dm-sans)] text-sm font-medium text-white transition-colors hover:border-white hover:bg-white/10"
+                  onClick={slide.secondary.onClick}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  {slide.secondary.label}
+                </motion.button>
+              )}
+            </div>
 
-            {/* Stats mini */}
-            <motion.div
-              variants={itemVariants}
-              className="mt-10 flex items-center justify-center lg:justify-start gap-8"
-            >
+            <div className="mt-10 flex items-center gap-8">
               {[
                 { value: '200+', label: 'Références' },
                 { value: '500+', label: 'Clientes' },
                 { value: '48h', label: 'Livraison' },
               ].map((stat) => (
-                <div key={stat.label} className="text-center lg:text-left">
-                  <p className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-gold">
+                <div key={stat.label}>
+                  <p className="font-[family-name:var(--font-playfair)] text-xl font-bold text-gold sm:text-2xl">
                     {stat.value}
                   </p>
-                  <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mt-0.5">
+                  <p className="font-[family-name:var(--font-dm-sans)] text-xs text-white/70">
                     {stat.label}
                   </p>
                 </div>
               ))}
-            </motion.div>
-          </motion.div>
-
-          {/* Hero Product Image */}
-          <motion.div
-            className="relative flex justify-center lg:justify-end"
-            style={{ y: imageY, scale: imageScale }}
-            initial={{ opacity: 0, x: 60 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            <div className="relative w-72 h-96 sm:w-80 sm:h-[440px] lg:w-96 lg:h-[520px]">
-              {/* Glow behind image */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-gold/20 via-caramel/10 to-transparent rounded-3xl blur-2xl" />
-
-              {/* Image container */}
-              <div className="relative w-full h-full glass-card overflow-hidden warm-shadow-lg">
-                <img
-                  src="/images/products/necklace-1.png"
-                  alt="Collier TONOMI - Collection phare"
-                  className="w-full h-full object-cover"
-                />
-
-                {/* Overlay gradient */}
-                <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-text-dark/20 to-transparent" />
-
-                {/* Floating tag */}
-                <motion.div
-                  className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 warm-shadow"
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <span className="font-[family-name:var(--font-dm-sans)] text-xs font-semibold text-gold">
-                    Best-Seller ✨
-                  </span>
-                </motion.div>
-              </div>
-
-              {/* Decorative floating element */}
-              <motion.div
-                className="absolute -bottom-4 -left-4 w-20 h-20 rounded-full bg-gold/10 animate-float"
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 4, repeat: Infinity }}
-              />
             </div>
           </motion.div>
-        </div>
+        </AnimatePresence>
       </div>
 
-      {/* Scroll Indicator */}
-      <motion.div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.5 }}
+      {/* Arrows */}
+      <button
+        type="button"
+        onClick={prev}
+        className="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50 sm:left-6"
+        aria-label="Slide précédent"
       >
-        <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid tracking-wider">
-          Défiler
-        </span>
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <button
+        type="button"
+        onClick={next}
+        className="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50 sm:right-6"
+        aria-label="Slide suivant"
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
+
+      {/* Dots + progress */}
+      <div className="absolute bottom-8 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-4">
+        <div className="flex items-center gap-2">
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => goTo(i)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === activeIndex
+                  ? 'w-8 bg-gold'
+                  : 'w-2 bg-white/40 hover:bg-white/70'
+              }`}
+              aria-label={`Aller au slide ${i + 1}`}
+              aria-current={i === activeIndex ? 'true' : undefined}
+            />
+          ))}
+        </div>
         <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+          className="flex flex-col items-center gap-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
         >
-          <ChevronDown className="w-5 h-5 text-gold" />
+          <span className="font-[family-name:var(--font-dm-sans)] text-xs tracking-wider text-white/60">
+            Défiler
+          </span>
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <ChevronDown className="h-5 w-5 text-gold" />
+          </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
     </section>
   )
 }

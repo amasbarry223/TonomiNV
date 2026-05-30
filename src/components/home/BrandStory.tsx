@@ -3,6 +3,7 @@
 import { useRef } from 'react'
 import { motion, useScroll, useTransform, useInView } from 'framer-motion'
 import { Package, Clock, ShieldCheck } from 'lucide-react'
+import { ProductImage } from '@/components/ui/product-image'
 
 const stats = [
   {
@@ -116,10 +117,12 @@ export default function BrandStory() {
 
               {/* Image */}
               <div className="relative w-full h-full rounded-3xl overflow-hidden warm-shadow-lg">
-                <img
+                <ProductImage
                   src="/images/about/about-hero.png"
                   alt="Artisan TONOMI au travail"
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 400px"
+                  className="object-cover"
                 />
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-text-dark/10 to-transparent" />

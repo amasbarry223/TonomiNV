@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Clock,
@@ -20,11 +20,20 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { Product } from '@/data/products'
-import type { PromoCode, FlashSale } from '@/data/promos'
+import { products as staticProducts, type Product } from '@/data/products'
+import {
+  promoCodes as staticPromoCodes,
+  getActiveFlashSales,
+  type PromoCode,
+  type FlashSale,
+} from '@/data/promos'
 import { useCartStore } from '@/stores/cart-store'
 import { useNavStore } from '@/stores/nav-store'
+import { ProductImage } from '@/components/ui/product-image'
+import { getProductImagePaths } from '@/data/product-image-map'
 import { toast } from 'sonner'
+
+const PROMO_HEADER_IMAGE = getProductImagePaths('prod-009', 'sacs', 1)[0]
 
 // ─── Countdown Digit with Flip ───────────────────────────────────────────────
 function FlipDigit({ value, label }: { value: number; label: string }) {
@@ -53,7 +62,7 @@ function FlipDigit({ value, label }: { value: number; label: string }) {
           <div className="absolute inset-x-0 top-1/2 h-px bg-white/20" />
         </div>
       </div>
-      <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid uppercase tracking-wider">
+      <span className="font-[family-name:var(--font-dm-sans)] text-xs text-white/75 uppercase tracking-wider">
         {label}
       </span>
     </div>
@@ -116,9 +125,13 @@ function PromoProductCard({ product }: { product: Product }) {
       onClick={() => goProduct(product.id)}
     >
       <div className="relative aspect-[3/4] bg-gradient-to-br from-beige to-gold/20 overflow-hidden">
-        <div className="product-image w-full h-full flex items-center justify-center">
-          <ShoppingBag className="w-12 h-12 text-gold/30" />
-        </div>
+        <ProductImage
+          src={product.images[0]}
+          alt={product.name}
+          fill
+          sizes="(max-width: 768px) 50vw, 25vw"
+          className="product-image object-cover"
+        />
         <Badge className="absolute top-3 left-3 bg-caramel text-white text-xs font-[family-name:var(--font-dm-sans)] font-semibold border-0">
           –{discount}%
         </Badge>
@@ -212,9 +225,13 @@ function FlashSaleCard({ sale, product }: { sale: FlashSale; product: Product })
       onClick={() => goProduct(product.id)}
     >
       <div className="relative aspect-[3/4] bg-gradient-to-br from-beige to-gold/20 overflow-hidden">
-        <div className="product-image w-full h-full flex items-center justify-center">
-          <ShoppingBag className="w-12 h-12 text-gold/30" />
-        </div>
+        <ProductImage
+          src={product.images[0]}
+          alt={product.name}
+          fill
+          sizes="(max-width: 768px) 50vw, 25vw"
+          className="product-image object-cover"
+        />
         <div className="absolute top-3 left-3 flex items-center gap-1 bg-caramel text-white text-xs font-semibold px-2.5 py-1 rounded-full">
           <Zap className="w-3 h-3" /> –{sale.discount}%
         </div>
@@ -392,10 +409,18 @@ function BundleCard({
       <div className="p-5">
         <div className="space-y-2 mb-4">
           {bundleProducts.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 text-sm">
-              <ShoppingBag className="w-4 h-4 text-gold/50" />
-              <span className="font-[family-name:var(--font-dm-sans)] text-text-dark flex-1">{p.name}</span>
-              <span className="font-[family-name:var(--font-dm-sans)] text-text-mid">
+            <div key={p.id} className="flex items-center gap-3 text-sm">
+              <div className="relative w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-beige">
+                <ProductImage
+                  src={p.images[0]}
+                  alt={p.name}
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                />
+              </div>
+              <span className="font-[family-name:var(--font-dm-sans)] text-text-dark flex-1 line-clamp-1">{p.name}</span>
+              <span className="font-[family-name:var(--font-dm-sans)] text-text-mid shrink-0">
                 {p.price.toLocaleString('fr-FR')} F
               </span>
             </div>
@@ -458,111 +483,66 @@ function PromoCodeSkeleton() {
   )
 }
 
+const PROMO_FILTER_TABS = [
+  { value: 'tout', label: 'Tout' },
+  { value: 'bijoux', label: 'Bijoux' },
+  { value: 'sacs', label: 'Sacs' },
+  { value: 'foulards', label: 'Foulards' },
+  { value: 'lunettes', label: 'Lunettes' },
+] as const
+
+function buildPromotionsState() {
+  const promoProducts = staticProducts.filter(
+    (p) => p.pricePromo !== undefined && p.pricePromo !== null
+  )
+  const productsMap: Record<string, Product> = {}
+  staticProducts.forEach((p) => {
+    productsMap[p.id] = p
+  })
+  const now = new Date()
+  const promoCodes = staticPromoCodes.filter((p) => new Date(p.validUntil) > now)
+  const flashSales = getActiveFlashSales()
+  return { promoProducts, productsMap, promoCodes, flashSales }
+}
+
 // ─── Main Promotions Page ─────────────────────────────────────────────────────
 export default function PromotionsPage() {
   const [activeFilter, setActiveFilter] = useState('tout')
-  const [promoProducts, setPromoProducts] = useState<Product[]>([])
-  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
-  const [flashSales, setFlashSales] = useState<FlashSale[]>([])
-  const [productsMap, setProductsMap] = useState<Record<string, Product>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [{ promoProducts, productsMap, promoCodes, flashSales }] = useState(buildPromotionsState)
 
-  // Find the earliest flash sale end date for countdown
-  const earliestEnd = flashSales
-    .filter((s) => s.stockLeft > 0 && new Date(s.endsAt) > new Date())
-    .sort((a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime())[0]?.endsAt
+  const earliestEnd = useMemo(
+    () =>
+      flashSales
+        .filter((s) => s.stockLeft > 0 && new Date(s.endsAt) > new Date())
+        .sort((a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime())[0]
+        ?.endsAt,
+    [flashSales]
+  )
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true)
-        setError(null)
-        const [productsRes, promosRes, flashSalesRes] = await Promise.all([
-          fetch('/api/products?limit=100'),
-          fetch('/api/promos'),
-          fetch('/api/flash-sales'),
-        ])
-        if (!productsRes.ok || !promosRes.ok || !flashSalesRes.ok) throw new Error('Failed to fetch')
-
-        const productsData = await productsRes.json()
-        const promosData = await promosRes.json()
-        const flashSalesData = await flashSalesRes.json()
-
-        const allProducts = productsData.products as Product[]
-        // Filter products with promo prices
-        const filtered = allProducts.filter((p) => p.pricePromo !== undefined && p.pricePromo !== null)
-        setPromoProducts(filtered)
-
-        // Build products map for flash sale lookups and bundles
-        const map: Record<string, Product> = {}
-        allProducts.forEach((p) => { map[p.id] = p })
-        setProductsMap(map)
-
-        // Filter active promo codes (valid and active)
-        const now = new Date()
-        const activePromos = (promosData as (PromoCode & { isActive?: boolean })[]).filter(
-          (p) => p.isActive !== false && new Date(p.validUntil) > now
-        )
-        setPromoCodes(activePromos)
-
-        // Filter active flash sales
-        const activeFlashSales = (flashSalesData as (FlashSale & { isActive?: boolean })[]).filter(
-          (s) => s.isActive !== false && s.stockLeft > 0 && new Date(s.endsAt) > now
-        )
-        setFlashSales(activeFlashSales)
-      } catch {
-        setError('Impossible de charger les promotions')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [])
-
-  const handleRetry = () => {
-    setLoading(true)
-    setError(null)
-    Promise.all([
-      fetch('/api/products?limit=100'),
-      fetch('/api/promos'),
-      fetch('/api/flash-sales'),
-    ])
-      .then(async ([productsRes, promosRes, flashSalesRes]) => {
-        if (!productsRes.ok || !promosRes.ok || !flashSalesRes.ok) throw new Error('Failed')
-        const productsData = await productsRes.json()
-        const promosData = await promosRes.json()
-        const flashSalesData = await flashSalesRes.json()
-        const allProducts = productsData.products as Product[]
-        setPromoProducts(allProducts.filter((p) => p.pricePromo !== undefined && p.pricePromo !== null))
-        const map: Record<string, Product> = {}
-        allProducts.forEach((p) => { map[p.id] = p })
-        setProductsMap(map)
-        const now = new Date()
-        setPromoCodes((promosData as (PromoCode & { isActive?: boolean })[]).filter((p) => p.isActive !== false && new Date(p.validUntil) > now))
-        setFlashSales((flashSalesData as (FlashSale & { isActive?: boolean })[]).filter((s) => s.isActive !== false && s.stockLeft > 0 && new Date(s.endsAt) > now))
-      })
-      .catch(() => setError('Impossible de charger les promotions'))
-      .finally(() => setLoading(false))
-  }
-
-  const filteredProducts = activeFilter === 'tout'
-    ? promoProducts
-    : promoProducts.filter((p) => p.category === activeFilter)
-
-  const filterTabs = [
-    { value: 'tout', label: 'Tout' },
-    { value: 'bijoux', label: 'Bijoux' },
-    { value: 'sacs', label: 'Sacs' },
-    { value: 'foulards', label: 'Foulards' },
-    { value: 'lunettes', label: 'Lunettes' },
-  ]
+  const filteredProducts = useMemo(
+    () =>
+      activeFilter === 'tout'
+        ? promoProducts
+        : promoProducts.filter((p) => p.category === activeFilter),
+    [activeFilter, promoProducts]
+  )
 
   return (
     <div className="min-h-screen">
       {/* ── Header with Countdown ── */}
       <section className="relative pt-24 pb-12 sm:pt-32 sm:pb-16 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-gold/10 via-cream to-caramel/10 particles-bg" />
+        <div className="absolute inset-0">
+          <ProductImage
+            src={PROMO_HEADER_IMAGE}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black/75" />
+        </div>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <motion.div
             className="text-center"
@@ -571,7 +551,7 @@ export default function PromotionsPage() {
             transition={{ duration: 0.7 }}
           >
             <motion.div
-              className="inline-flex items-center gap-2 bg-gold/10 text-gold px-5 py-2 rounded-full mb-6"
+              className="inline-flex items-center gap-2 bg-white/15 text-gold border border-white/20 backdrop-blur-sm px-5 py-2 rounded-full mb-6"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -582,7 +562,7 @@ export default function PromotionsPage() {
               </span>
             </motion.div>
 
-            <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl lg:text-6xl font-bold text-text-dark leading-tight">
+            <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
               Soldes <span className="text-gold-gradient">Exceptionnelles</span>
             </h1>
 
@@ -605,7 +585,7 @@ export default function PromotionsPage() {
             </motion.div>
 
             <motion.p
-              className="mt-4 font-[family-name:var(--font-dm-sans)] text-sm text-text-mid"
+              className="mt-4 font-[family-name:var(--font-dm-sans)] text-sm text-white/80"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
@@ -621,7 +601,7 @@ export default function PromotionsPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <Tabs value={activeFilter} onValueChange={setActiveFilter}>
             <TabsList className="bg-beige/50 w-full sm:w-auto flex h-auto p-1 rounded-full">
-              {filterTabs.map((tab) => (
+              {PROMO_FILTER_TABS.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
                   value={tab.value}
@@ -635,19 +615,7 @@ export default function PromotionsPage() {
         </div>
       </section>
 
-      {error ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <AlertCircle className="w-10 h-10 text-caramel/50 mb-3" />
-          <p className="font-[family-name:var(--font-dm-sans)] text-text-mid text-sm mb-4">{error}</p>
-          <button
-            onClick={handleRetry}
-            className="btn-gold px-6 py-2.5 text-sm"
-          >
-            Réessayer
-          </button>
-        </div>
-      ) : (
-        <>
+      <>
           {/* ── Offres du Jour ── */}
           <section className="py-12 sm:py-16">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -671,29 +639,21 @@ export default function PromotionsPage() {
                 </div>
               </motion.div>
 
-              {loading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <PromoCardSkeleton key={i} />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                  {filteredProducts.map((product, i) => (
-                    <motion.div
-                      key={product.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.4, delay: i * 0.08 }}
-                    >
-                      <PromoProductCard product={product} />
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                {filteredProducts.map((product, i) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: i * 0.08 }}
+                  >
+                    <PromoProductCard product={product} />
+                  </motion.div>
+                ))}
+              </div>
 
-              {!loading && filteredProducts.length === 0 && (
+              {filteredProducts.length === 0 && (
                 <div className="text-center py-12">
                   <Tag className="w-12 h-12 text-gold/30 mx-auto mb-3" />
                   <p className="font-[family-name:var(--font-dm-sans)] text-text-mid">
@@ -727,31 +687,23 @@ export default function PromotionsPage() {
                 </div>
               </motion.div>
 
-              {loading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <PromoCardSkeleton key={i} />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                  {flashSales.map((sale, i) => {
-                    const product = productsMap[sale.productId]
-                    if (!product) return null
-                    return (
-                      <motion.div
-                        key={sale.id}
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.4, delay: i * 0.08 }}
-                      >
-                        <FlashSaleCard sale={sale} product={product} />
-                      </motion.div>
-                    )
-                  })}
-                </div>
-              )}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                {flashSales.map((sale, i) => {
+                  const product = productsMap[sale.productId]
+                  if (!product) return null
+                  return (
+                    <motion.div
+                      key={sale.id}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.4, delay: i * 0.08 }}
+                    >
+                      <FlashSaleCard sale={sale} product={product} />
+                    </motion.div>
+                  )
+                })}
+              </div>
             </div>
           </section>
 
@@ -778,27 +730,19 @@ export default function PromotionsPage() {
                 </div>
               </motion.div>
 
-              {loading ? (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <PromoCodeSkeleton key={i} />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {promoCodes.map((promo, i) => (
-                    <motion.div
-                      key={promo.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.4, delay: i * 0.08 }}
-                    >
-                      <PromoCodeCard promo={promo} />
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {promoCodes.map((promo, i) => (
+                  <motion.div
+                    key={promo.id}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: i * 0.08 }}
+                  >
+                    <PromoCodeCard promo={promo} />
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </section>
 
@@ -848,8 +792,7 @@ export default function PromotionsPage() {
               </div>
             </div>
           </section>
-        </>
-      )}
+      </>
     </div>
   )
 }

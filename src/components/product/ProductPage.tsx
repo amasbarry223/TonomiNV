@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star,
@@ -24,46 +24,13 @@ import {
 } from '@/components/ui/accordion'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { Product } from '@/data/products'
-import type { Category } from '@/data/categories'
+import { getProductById, getProductsByCategory, type Product } from '@/data/products'
+import { categories as staticCategories, type Category } from '@/data/categories'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { useNavStore } from '@/stores/nav-store'
 import ProductCard from '@/components/catalog/ProductCard'
-
-const formatPrice = (price: number) => price.toLocaleString('fr-FR') + ' FCFA'
-
-const colorSwatchMap: Record<string, string> = {
-  noir: '#1a1a1a',
-  blanc: '#FFFFFF',
-  or: '#D4AF6A',
-  argent: '#C0C0C0',
-  marron: '#8B4513',
-  terracotta: '#CC5500',
-  bordeaux: '#722F37',
-  bleu: '#2563EB',
-  'bleu marine': '#1E3A5F',
-  vert: '#16A34A',
-  rose: '#F472B6',
-  'rose gold': '#B76E79',
-  roserose: '#B76E79',
-  jaune: '#EAB308',
-  orange: '#F97316',
-  multicolore: 'linear-gradient(135deg, #D4AF6A, #E8C547, #C8956C)',
-  doré: '#D4AF6A',
-  cognac: '#834333',
-  sable: '#C2B280',
-  naturel: '#E8D5B7',
-  indigo: '#4B0082',
-  kaki: '#8B7355',
-  écaille: '#6B3A2A',
-  tortue: '#8B6914',
-  'noir et blanc': 'linear-gradient(90deg, #1a1a1a 50%, #FFFFFF 50%)',
-  émeraude: '#046307',
-  violet: '#7C3AED',
-  transparent: '#F5F5F5',
-  ivoire: '#FFFFF0',
-}
+import { formatPrice, getSwatchStyle } from '@/lib/product-display'
 
 // Mock reviews
 const mockReviews = [
@@ -110,70 +77,18 @@ const mockReviews = [
 ]
 
 export default function ProductPage() {
-  const { selectedProductId, goHome, goCatalogue } = useNavStore()
-  const [product, setProduct] = useState<Product | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { selectedProductId, goCatalogue } = useNavStore()
+  const product = selectedProductId ? getProductById(selectedProductId) ?? null : null
 
-  useEffect(() => {
-    if (!selectedProductId) {
-      setLoading(false)
-      return
-    }
-    async function fetchProduct() {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await fetch(`/api/products/${selectedProductId}`)
-        if (!res.ok) {
-          if (res.status === 404) {
-            setProduct(null)
-          } else {
-            throw new Error('Failed to fetch product')
-          }
-        } else {
-          const data = await res.json()
-          setProduct(data as Product)
-        }
-      } catch {
-        setError('Impossible de charger le produit')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchProduct()
-  }, [selectedProductId])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen pt-24 pb-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-            <Skeleton className="aspect-[3/4] rounded-2xl" />
-            <div className="space-y-4">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-6 w-1/3" />
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
+  if (!selectedProductId) {
     return (
       <div className="min-h-screen pt-24 pb-16 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-10 h-10 text-caramel/50 mx-auto mb-3" />
-          <p className="font-[family-name:var(--font-dm-sans)] text-text-mid mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-gold px-6 py-2.5 text-sm"
-          >
-            Réessayer
+          <p className="font-[family-name:var(--font-dm-sans)] text-text-mid">
+            Sélectionnez un produit depuis le catalogue.
+          </p>
+          <button onClick={() => goCatalogue()} className="mt-4 btn-gold px-6 py-2.5 text-sm">
+            Voir le catalogue
           </button>
         </div>
       </div>
@@ -206,8 +121,11 @@ export default function ProductPage() {
 
 function ProductDetail({ product }: { product: Product }) {
   const { goHome, goCatalogue } = useNavStore()
-  const { addItem } = useCartStore()
-  const { isInWishlist, toggleItem } = useWishlistStore()
+  const addItem = useCartStore((s) => s.addItem)
+  const toggleItem = useWishlistStore((s) => s.toggleItem)
+  const inWishlist = useWishlistStore((s) =>
+    s.items.some((i) => i.productId === product.id)
+  )
 
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedColor, setSelectedColor] = useState(product.colors[0] || '')
@@ -218,42 +136,15 @@ function ProductDetail({ product }: { product: Product }) {
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 })
   const imageRef = useRef<HTMLDivElement>(null)
 
-  // Fetch categories and similar products from API
-  const [categories, setCategories] = useState<Category[]>([])
-  const [similarProducts, setSimilarProducts] = useState<Product[]>([])
+  const categories = staticCategories
+  const similarProducts = useMemo(
+    () =>
+      getProductsByCategory(product.category)
+        .filter((p) => p.id !== product.id)
+        .slice(0, 6),
+    [product.category, product.id]
+  )
 
-  useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const res = await fetch('/api/categories')
-        if (res.ok) {
-          const data = await res.json()
-          setCategories(data as Category[])
-        }
-      } catch {
-        // silently fail for categories
-      }
-    }
-    fetchCategories()
-  }, [])
-
-  useEffect(() => {
-    async function fetchSimilar() {
-      try {
-        const res = await fetch(`/api/products?category=${product.category}&limit=20`)
-        if (res.ok) {
-          const data = await res.json()
-          const filtered = (data.products as Product[]).filter((p) => p.id !== product.id).slice(0, 6)
-          setSimilarProducts(filtered)
-        }
-      } catch {
-        // silently fail for similar products
-      }
-    }
-    fetchSimilar()
-  }, [product.category, product.id])
-
-  const inWishlist = isInWishlist(product.id)
   const isOutOfStock = product.stock === 0
   const categoryName = categories.find((c) => c.slug === product.category)?.name ?? product.category
 
@@ -261,10 +152,17 @@ function ProductDetail({ product }: { product: Product }) {
   const reviewStats = useMemo(() => {
     const total = mockReviews.length
     const avg = mockReviews.reduce((sum, r) => sum + r.rating, 0) / total
+    const countsByStar = mockReviews.reduce(
+      (acc, r) => {
+        acc[r.rating] = (acc[r.rating] ?? 0) + 1
+        return acc
+      },
+      {} as Record<number, number>
+    )
     const distribution = [5, 4, 3, 2, 1].map((star) => ({
       star,
-      count: mockReviews.filter((r) => r.rating === star).length,
-      percent: (mockReviews.filter((r) => r.rating === star).length / total) * 100,
+      count: countsByStar[star] ?? 0,
+      percent: ((countsByStar[star] ?? 0) / total) * 100,
     }))
     return { total, avg, distribution }
   }, [])
@@ -272,18 +170,16 @@ function ProductDetail({ product }: { product: Product }) {
   const handleAddToCart = () => {
     if (isOutOfStock) return
     setAddingToCart(true)
-    for (let i = 0; i < quantity; i++) {
-      addItem({
-        id: `${product.id}-${selectedColor}-${selectedSize}-${Date.now()}-${i}`,
-        productId: product.id,
-        name: product.name,
-        price: product.pricePromo ?? product.price,
-        quantity: 1,
-        color: selectedColor,
-        size: selectedSize,
-        image: product.images[selectedImage] || product.images[0],
-      })
-    }
+    addItem({
+      id: `${product.id}-${selectedColor}-${selectedSize}`,
+      productId: product.id,
+      name: product.name,
+      price: product.pricePromo ?? product.price,
+      quantity,
+      color: selectedColor,
+      size: selectedSize,
+      image: product.images[selectedImage] || product.images[0],
+    })
     setTimeout(() => setAddingToCart(false), 800)
   }
 
@@ -493,7 +389,7 @@ function ProductDetail({ product }: { product: Product }) {
                           ? 'border-gold ring-2 ring-gold/30'
                           : 'border-gold/20 hover:border-gold/50'
                       }`}
-                      style={{ background: colorSwatchMap[color] || '#999' }}
+                      style={getSwatchStyle(color)}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       title={color}

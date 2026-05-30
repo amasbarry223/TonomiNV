@@ -4,43 +4,60 @@ import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
-import CartDrawer from '@/components/layout/CartDrawer'
 import WhatsAppButton from '@/components/shared/WhatsAppButton'
 import BackToTop from '@/components/shared/BackToTop'
+import { PageSkeleton, SectionSkeleton } from '@/components/ui/page-skeleton'
 import { useNavStore } from '@/stores/nav-store'
 
-// Home section components
 import HeroSection from '@/components/home/HeroSection'
+import CategoriesSection from '@/components/home/CategoriesSection'
 import NewArrivals from '@/components/home/NewArrivals'
 import BestSellers from '@/components/home/BestSellers'
-import BrandStory from '@/components/home/BrandStory'
-import CategoriesSection from '@/components/home/CategoriesSection'
-import TestimonialsSection from '@/components/home/TestimonialsSection'
-import InstagramFeed from '@/components/home/InstagramFeed'
-import NewsletterSection from '@/components/home/NewsletterSection'
 
-// Dynamic import for map component (SSR incompatible due to d3)
-const PresenceSection = dynamic(() => import('@/components/home/PresenceSection'), { ssr: false })
+const CartDrawer = dynamic(() => import('@/components/layout/CartDrawer'), { ssr: false })
 
-// Page components
-import PromotionsPage from '@/components/promotions/PromotionsPage'
-import AboutPage from '@/components/about/AboutPage'
-import ContactPage from '@/components/contact/ContactPage'
-import CatalogPage from '@/components/catalog/CatalogPage'
-import ProductPage from '@/components/product/ProductPage'
+const BrandStory = dynamic(() => import('@/components/home/BrandStory'), {
+  loading: () => <SectionSkeleton className="min-h-[480px]" />,
+})
+const PresenceSection = dynamic(() => import('@/components/home/PresenceSection'), {
+  ssr: false,
+  loading: () => <SectionSkeleton className="min-h-[520px]" />,
+})
+const TestimonialsSection = dynamic(() => import('@/components/home/TestimonialsSection'), {
+  loading: () => <SectionSkeleton className="min-h-[400px]" />,
+})
+const InstagramFeed = dynamic(() => import('@/components/home/InstagramFeed'), {
+  loading: () => <SectionSkeleton className="min-h-[360px]" />,
+})
+const NewsletterSection = dynamic(() => import('@/components/home/NewsletterSection'), {
+  loading: () => <SectionSkeleton className="min-h-[280px]" />,
+})
 
-// Admin components
-import AdminLayout from '@/components/admin/AdminLayout'
+const CatalogPage = dynamic(() => import('@/components/catalog/CatalogPage'), {
+  loading: () => <PageSkeleton />,
+})
+const ProductPage = dynamic(() => import('@/components/product/ProductPage'), {
+  loading: () => <PageSkeleton />,
+})
+const PromotionsPage = dynamic(() => import('@/components/promotions/PromotionsPage'), {
+  loading: () => <PageSkeleton />,
+})
+const AboutPage = dynamic(() => import('@/components/about/AboutPage'), {
+  loading: () => <PageSkeleton />,
+})
+const ContactPage = dynamic(() => import('@/components/contact/ContactPage'), {
+  loading: () => <PageSkeleton />,
+})
 
 const pageVariants = {
-  initial: { opacity: 0, y: 8, filter: 'blur(4px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  exit: { opacity: 0, y: -8, filter: 'blur(4px)' },
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
 }
 
 const pageTransition = {
-  type: 'tween',
-  ease: 'easeInOut',
+  type: 'tween' as const,
+  ease: 'easeInOut' as const,
   duration: 0.35,
 }
 
@@ -62,11 +79,6 @@ function HomePage() {
 
 export default function Home() {
   const { currentPage } = useNavStore()
-
-  // Admin page has its own layout (no Navbar/Footer)
-  if (currentPage === 'admin') {
-    return <AdminLayout />
-  }
 
   const renderPage = () => {
     switch (currentPage) {

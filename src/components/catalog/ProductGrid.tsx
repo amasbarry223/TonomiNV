@@ -1,30 +1,20 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingBag, PackageSearch } from 'lucide-react'
-import { Skeleton } from '@/components/ui/skeleton'
+import { memo } from 'react'
+import { motion } from 'framer-motion'
+import { ShoppingBag, PackageSearch, Star, Heart } from 'lucide-react'
 import ProductCard from './ProductCard'
 import type { Product } from '@/data/products'
 import { useFilterStore } from '@/stores/filter-store'
+import { useCartStore } from '@/stores/cart-store'
+import { useWishlistStore } from '@/stores/wishlist-store'
+import { useNavStore } from '@/stores/nav-store'
+import { formatPrice } from '@/lib/product-display'
 
 interface ProductGridProps {
   products: Product[]
   isLoading?: boolean
   onQuickView?: (product: Product) => void
-}
-
-function ProductSkeleton() {
-  return (
-    <div className="glass-card overflow-hidden">
-      <Skeleton className="aspect-[3/4] rounded-none" />
-      <div className="p-4 space-y-2">
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-1/2" />
-        <Skeleton className="h-5 w-2/3" />
-      </div>
-    </div>
-  )
 }
 
 function EmptyState() {
@@ -48,24 +38,8 @@ function EmptyState() {
   )
 }
 
-export default function ProductGrid({ products, isLoading, onQuickView }: ProductGridProps) {
-  const { viewMode } = useFilterStore()
-
-  if (isLoading) {
-    return (
-      <div
-        className={
-          viewMode === 'grid'
-            ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6'
-            : 'flex flex-col gap-4'
-        }
-      >
-        {Array.from({ length: 8 }).map((_, i) => (
-          <ProductSkeleton key={i} />
-        ))}
-      </div>
-    )
-  }
+function ProductGrid({ products, onQuickView }: ProductGridProps) {
+  const viewMode = useFilterStore((s) => s.viewMode)
 
   if (products.length === 0) {
     return <EmptyState />
@@ -73,66 +47,40 @@ export default function ProductGrid({ products, isLoading, onQuickView }: Produc
 
   if (viewMode === 'list') {
     return (
-      <motion.div
-        layout
-        className="flex flex-col gap-4"
-        transition={{ duration: 0.3 }}
-      >
-        <AnimatePresence mode="popLayout">
-          {products.map((product) => (
-            <motion.div
-              key={product.id}
-              layout
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ProductListItem product={product} onQuickView={onQuickView} />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </motion.div>
+      <div className="flex flex-col gap-4">
+        {products.map((product) => (
+          <ProductListItem
+            key={product.id}
+            product={product}
+            onQuickView={onQuickView}
+          />
+        ))}
+      </div>
     )
   }
 
   return (
-    <motion.div
-      layout
-      className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"
-      transition={{ duration: 0.3 }}
-    >
-      <AnimatePresence mode="popLayout">
-        {products.map((product) => (
-          <motion.div
-            key={product.id}
-            layout
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.3 }}
-          >
-            <ProductCard product={product} onQuickView={onQuickView} />
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </motion.div>
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+      {products.map((product) => (
+        <ProductCard key={product.id} product={product} onQuickView={onQuickView} />
+      ))}
+    </div>
   )
 }
 
-// List view item
-import { useCartStore } from '@/stores/cart-store'
-import { useWishlistStore } from '@/stores/wishlist-store'
-import { useNavStore } from '@/stores/nav-store'
-import { Star, Heart } from 'lucide-react'
-
-const formatPrice = (price: number) => price.toLocaleString('fr-FR') + ' FCFA'
-
-function ProductListItem({ product, onQuickView }: { product: Product; onQuickView?: (product: Product) => void }) {
-  const { goProduct } = useNavStore()
-  const { addItem } = useCartStore()
-  const { isInWishlist, toggleItem } = useWishlistStore()
-  const inWishlist = isInWishlist(product.id)
+const ProductListItem = memo(function ProductListItem({
+  product,
+  onQuickView,
+}: {
+  product: Product
+  onQuickView?: (product: Product) => void
+}) {
+  const goProduct = useNavStore((s) => s.goProduct)
+  const addItem = useCartStore((s) => s.addItem)
+  const toggleItem = useWishlistStore((s) => s.toggleItem)
+  const inWishlist = useWishlistStore((s) =>
+    s.items.some((i) => i.productId === product.id)
+  )
   const isOutOfStock = product.stock === 0
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -155,23 +103,29 @@ function ProductListItem({ product, onQuickView }: { product: Product; onQuickVi
       className="glass-card overflow-hidden cursor-pointer flex gap-4 p-4 product-card"
       onClick={() => goProduct(product.id)}
     >
-      {/* Image */}
       <div className="relative w-28 sm:w-36 flex-shrink-0 aspect-[3/4] bg-gradient-to-br from-beige to-gold/20 rounded-xl overflow-hidden">
         <div className="w-full h-full flex items-center justify-center">
           <ShoppingBag className="w-8 h-8 text-gold/30" />
         </div>
         {product.badge && (
-          <span className={`absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-            product.badge === 'nouveau' ? 'bg-emerald-500 text-white' :
-            product.badge === 'promo' ? 'bg-caramel text-white' :
-            'bg-gray-400 text-white'
-          }`}>
-            {product.badge === 'nouveau' ? 'Nouveau' : product.badge === 'promo' ? 'Promo' : 'Épuisé'}
+          <span
+            className={`absolute top-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+              product.badge === 'nouveau'
+                ? 'bg-emerald-500 text-white'
+                : product.badge === 'promo'
+                ? 'bg-caramel text-white'
+                : 'bg-gray-400 text-white'
+            }`}
+          >
+            {product.badge === 'nouveau'
+              ? 'Nouveau'
+              : product.badge === 'promo'
+              ? 'Promo'
+              : 'Épuisé'}
           </span>
         )}
       </div>
 
-      {/* Info */}
       <div className="flex-1 flex flex-col justify-between py-1">
         <div>
           <p className="font-[family-name:var(--font-dm-sans)] text-[10px] uppercase tracking-widest text-text-mid/60 mb-0.5">
@@ -232,7 +186,9 @@ function ProductListItem({ product, onQuickView }: { product: Product; onQuickVi
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
             >
-              <Heart className={`w-4 h-4 ${inWishlist ? 'text-red-500 fill-red-500' : 'text-text-mid'}`} />
+              <Heart
+                className={`w-4 h-4 ${inWishlist ? 'text-red-500 fill-red-500' : 'text-text-mid'}`}
+              />
             </motion.button>
             <button
               className={`px-4 py-2 rounded-xl font-[family-name:var(--font-dm-sans)] text-xs font-semibold ${
@@ -250,4 +206,6 @@ function ProductListItem({ product, onQuickView }: { product: Product; onQuickVi
       </div>
     </div>
   )
-}
+})
+
+export default memo(ProductGrid)

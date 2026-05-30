@@ -13,43 +13,13 @@ import { type Product } from '@/data/products'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { useNavStore } from '@/stores/nav-store'
+import { formatPrice, getSwatchStyle } from '@/lib/product-display'
+import { ProductImage } from '@/components/ui/product-image'
 
 interface QuickViewModalProps {
   product: Product | null
   open: boolean
   onClose: () => void
-}
-
-const formatPrice = (price: number) => price.toLocaleString('fr-FR') + ' FCFA'
-
-const colorSwatchMap: Record<string, string> = {
-  noir: '#1a1a1a',
-  blanc: '#FFFFFF',
-  or: '#D4AF6A',
-  argent: '#C0C0C0',
-  marron: '#8B4513',
-  terracotta: '#CC5500',
-  bordeaux: '#722F37',
-  bleu: '#2563EB',
-  'bleu marine': '#1E3A5F',
-  vert: '#16A34A',
-  rose: '#F472B6',
-  'rose gold': '#B76E79',
-  jaune: '#EAB308',
-  multicolore: 'linear-gradient(135deg, #D4AF6A, #E8C547, #C8956C)',
-  doré: '#D4AF6A',
-  cognac: '#834333',
-  sable: '#C2B280',
-  naturel: '#E8D5B7',
-  indigo: '#4B0082',
-  kaki: '#8B7355',
-  écaille: '#6B3A2A',
-  tortue: '#8B6914',
-  'noir et blanc': 'linear-gradient(90deg, #1a1a1a 50%, #FFFFFF 50%)',
-  émeraude: '#046307',
-  violet: '#7C3AED',
-  transparent: '#F5F5F5',
-  ivoire: '#FFFFF0',
 }
 
 export default function QuickViewModal({ product, open, onClose }: QuickViewModalProps) {
@@ -111,8 +81,14 @@ export default function QuickViewModal({ product, open, onClose }: QuickViewModa
         </DialogDescription>
         <div className="flex flex-col sm:flex-row">
           {/* Image */}
-          <div className="relative sm:w-1/2 aspect-square bg-gradient-to-br from-beige to-gold/20 flex items-center justify-center">
-            <ShoppingBag className="w-16 h-16 text-gold/30" />
+          <div className="relative sm:w-1/2 aspect-square bg-gradient-to-br from-beige to-gold/20 overflow-hidden">
+            <ProductImage
+              src={product.images[0]}
+              alt={product.name}
+              fill
+              sizes="(max-width: 640px) 100vw, 50vw"
+              className="object-cover"
+            />
             {product.badge && (
               <span className={`absolute top-4 left-4 text-xs font-semibold px-3 py-1 rounded-full ${
                 product.badge === 'nouveau' ? 'bg-emerald-500 text-white' :
@@ -190,7 +166,7 @@ export default function QuickViewModal({ product, open, onClose }: QuickViewModa
                           ? 'border-gold ring-2 ring-gold/30'
                           : 'border-gold/20 hover:border-gold/50'
                       }`}
-                      style={{ background: colorSwatchMap[color] || '#999' }}
+                      style={getSwatchStyle(color)}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       title={color}

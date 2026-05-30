@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500">
-  <rect width="400" height="500" fill="#F0E6D3"/>
-  <circle cx="200" cy="200" r="60" fill="#D4AF6A" opacity="0.3"/>
-  <path d="M180 200 L200 170 L220 200 L210 200 L210 230 L190 230 L190 200 Z" fill="#D4AF6A" opacity="0.4"/>
-  <rect x="170" y="260" width="60" height="8" rx="4" fill="#D4AF6A" opacity="0.3"/>
-  <rect x="160" y="280" width="80" height="6" rx="3" fill="#D4AF6A" opacity="0.2"/>
-  <rect x="180" y="296" width="40" height="6" rx="3" fill="#D4AF6A" opacity="0.2"/>
-  <text x="200" y="400" text-anchor="middle" fill="#D4AF6A" font-family="sans-serif" font-size="14" opacity="0.5">TONOMI</text>
-</svg>

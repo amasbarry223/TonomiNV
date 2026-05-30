@@ -1,3 +1,5 @@
+import { getCategoryImagePath } from "./product-image-map";
+
 export interface Category {
   id: string;
   name: string;
@@ -13,7 +15,7 @@ export const categories: Category[] = [
     name: "Bijoux",
     slug: "bijoux",
     description: "Colliers, bracelets, boucles d'oreilles et bagues artisanaux. Des pièces uniques inspirées du savoir-faire malien pour sublimer votre élégance naturelle.",
-    image: "/images/products/necklace-1.png",
+    image: getCategoryImagePath("bijoux"),
     productCount: 10,
   },
   {
@@ -21,7 +23,7 @@ export const categories: Category[] = [
     name: "Sacs",
     slug: "sacs",
     description: "Sacs à main, pochettes et cabas en cuir véritable. Confectionnés par les artisans maliens avec passion et authenticité.",
-    image: "/images/products/bag-1.png",
+    image: getCategoryImagePath("sacs"),
     productCount: 6,
   },
   {
@@ -29,7 +31,7 @@ export const categories: Category[] = [
     name: "Foulards",
     slug: "foulards",
     description: "Foulards en soie, wax et cachemire aux motifs traditionnels et contemporains. L'art du drapé malien revisité.",
-    image: "/images/products/scarf-1.png",
+    image: getCategoryImagePath("foulards"),
     productCount: 5,
   },
   {
@@ -37,7 +39,7 @@ export const categories: Category[] = [
     name: "Lunettes",
     slug: "lunettes",
     description: "Lunettes de soleil et montres de créateur. Protection UV et style sous le soleil du Sahel.",
-    image: "/images/products/sunglasses-1.png",
+    image: getCategoryImagePath("lunettes"),
     productCount: 6,
   },
   {
@@ -45,7 +47,7 @@ export const categories: Category[] = [
     name: "Ceintures",
     slug: "ceintures",
     description: "Ceintures en cuir, tressées et chainées. Des accessoires qui affirment votre style avec élégance.",
-    image: "/images/products/belt-1.png",
+    image: getCategoryImagePath("ceintures"),
     productCount: 4,
   },
   {
@@ -53,7 +55,7 @@ export const categories: Category[] = [
     name: "Accessoires Cheveux",
     slug: "accessoires-cheveux",
     description: "Barrettes, serre-tête, diadèmes et pinces ornées. Des accessoires pour couronner votre beauté au quotidien.",
-    image: "/images/products/hair-accessory-1.png",
+    image: getCategoryImagePath("accessoires-cheveux"),
     productCount: 7,
   },
 ];

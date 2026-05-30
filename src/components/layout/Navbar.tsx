@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
+import { useCallback, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Heart, ShoppingBag, Menu, Settings } from 'lucide-react'
+import { Search, Heart, ShoppingBag, Menu } from 'lucide-react'
 import { useNavStore, type PageName } from '@/stores/nav-store'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { Badge } from '@/components/ui/badge'
-import MobileMenu from './MobileMenu'
-import SearchOverlay from './SearchOverlay'
+
+const SearchOverlay = dynamic(() => import('./SearchOverlay'), { ssr: false })
+const MobileMenu = dynamic(() => import('./MobileMenu'), { ssr: false })
 
 const navLinks: { label: string; page: PageName }[] = [
   { label: 'Accueil', page: 'home' },
@@ -22,12 +24,15 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const { currentPage, navigate, goAdmin } = useNavStore()
-  const { getItemCount, setCartOpen } = useCartStore()
-  const { items: wishlistItems } = useWishlistStore()
+  const { currentPage, navigate } = useNavStore()
+  const setCartOpen = useCartStore((s) => s.setCartOpen)
+  const cartCount = useCartStore((s) =>
+    s.items.reduce((n, i) => n + i.quantity, 0)
+  )
+  const wishlistCount = useWishlistStore((s) => s.items.length)
 
-  const cartCount = getItemCount()
-  const wishlistCount = wishlistItems.length
+  const closeSearch = useCallback(() => setSearchOpen(false), [])
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -56,10 +61,10 @@ export default function Navbar() {
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
         <div
-          className={`transition-all duration-500 ${
+          className={`bg-white transition-all duration-500 ${
             scrolled
-              ? 'bg-cream/80 backdrop-blur-xl shadow-[0_4px_30px_rgba(212,175,106,0.12)] border-b border-gold/20'
-              : 'bg-transparent'
+              ? 'shadow-md border-b border-black/10'
+              : 'border-b border-black/5'
           }`}
         >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -71,7 +76,7 @@ export default function Navbar() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <span className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold tracking-wider text-gold">
+                <span className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold tracking-wider text-black">
                   TONOMI
                 </span>
               </motion.button>
@@ -82,16 +87,13 @@ export default function Navbar() {
                   <button
                     key={link.page}
                     onClick={() => handleNavClick(link.page)}
-                    className="relative px-4 py-2 font-[family-name:var(--font-dm-sans)] text-sm font-medium tracking-wide transition-colors text-text-mid hover:text-gold"
+                    className="relative px-4 py-2 font-[family-name:var(--font-dm-sans)] text-sm font-medium tracking-wide transition-colors text-black hover:text-black/70"
                   >
                     {link.label}
                     {currentPage === link.page && (
                       <motion.div
                         layoutId="activeNav"
-                        className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full"
-                        style={{
-                          background: 'linear-gradient(90deg, #D4AF6A, #E8C547)',
-                        }}
+                        className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-black"
                         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                       />
                     )}
@@ -103,7 +105,7 @@ export default function Navbar() {
               <div className="flex items-center gap-2 sm:gap-3">
                 {/* Search */}
                 <motion.button
-                  className="relative p-2 rounded-full text-text-mid hover:text-gold hover:bg-beige/50 transition-colors"
+                  className="relative p-2 rounded-full text-black hover:text-black/70 hover:bg-black/5 transition-colors"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setSearchOpen(true)}
@@ -115,7 +117,7 @@ export default function Navbar() {
                 {/* Wishlist */}
                 <motion.button
                   onClick={handleWishlistClick}
-                  className="relative p-2 rounded-full text-text-mid hover:text-gold hover:bg-beige/50 transition-colors"
+                  className="relative p-2 rounded-full text-black hover:text-black/70 hover:bg-black/5 transition-colors"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   aria-label="Favoris"
@@ -131,7 +133,7 @@ export default function Navbar() {
                 {/* Cart */}
                 <motion.button
                   onClick={() => setCartOpen(true)}
-                  className="relative p-2 rounded-full text-text-mid hover:text-gold hover:bg-beige/50 transition-colors"
+                  className="relative p-2 rounded-full text-black hover:text-black/70 hover:bg-black/5 transition-colors"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   aria-label="Panier"
@@ -144,20 +146,9 @@ export default function Navbar() {
                   )}
                 </motion.button>
 
-                {/* Admin */}
-                <motion.button
-                  onClick={() => goAdmin()}
-                  className="relative p-2 rounded-full text-text-mid hover:text-caramel hover:bg-beige/50 transition-colors"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  aria-label="Administration"
-                >
-                  <Settings className="w-5 h-5" />
-                </motion.button>
-
                 {/* Mobile Menu Toggle */}
                 <motion.button
-                  className="md:hidden p-2 rounded-full text-text-mid hover:text-gold hover:bg-beige/50 transition-colors"
+                  className="md:hidden p-2 rounded-full text-black hover:text-black/70 hover:bg-black/5 transition-colors"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setMobileMenuOpen(true)}
@@ -172,13 +163,13 @@ export default function Navbar() {
       </motion.header>
 
       {/* Search Overlay */}
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      {searchOpen && <SearchOverlay open={searchOpen} onClose={closeSearch} />}
 
       {/* Mobile Menu */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <MobileMenu
-            onClose={() => setMobileMenuOpen(false)}
+            onClose={closeMobileMenu}
             currentPage={currentPage}
             onNavigate={handleNavClick}
           />

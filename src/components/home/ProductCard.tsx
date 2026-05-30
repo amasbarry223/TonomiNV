@@ -1,64 +1,30 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { memo, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, ShoppingBag, Star, Eye } from 'lucide-react'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { useNavStore } from '@/stores/nav-store'
 import type { Product } from '@/data/products'
+import { formatPrice, getSwatchStyle } from '@/lib/product-display'
+import { ProductImage } from '@/components/ui/product-image'
 
 interface ProductCardProps {
   product: Product
-  onQuickView?: () => void
+  onQuickView?: (productId: string) => void
   index?: number
 }
 
-const colorSwatchMap: Record<string, string> = {
-  noir: '#1a1a1a',
-  blanc: '#FFFFFF',
-  or: '#D4AF6A',
-  argent: '#C0C0C0',
-  marron: '#8B4513',
-  terracotta: '#CC5500',
-  bordeaux: '#722F37',
-  bleu: '#2563EB',
-  'bleu marine': '#1E3A5F',
-  vert: '#16A34A',
-  rose: '#F472B6',
-  'rose gold': '#B76E79',
-  roserose: '#B76E79',
-  jaune: '#EAB308',
-  orange: '#F97316',
-  multicolore: '#D4AF6A',
-  doré: '#D4AF6A',
-  cognac: '#834333',
-  sable: '#C2B280',
-  naturel: '#E8D5B7',
-  indigo: '#4B0082',
-  kaki: '#8B7355',
-  écaille: '#6B3A2A',
-  tortue: '#8B6914',
-  'noir et blanc': '#1a1a1a',
-  émeraude: '#046307',
-  violet: '#7C3AED',
-  transparent: '#F5F5F5',
-  ivoire: '#FFFFF0',
-}
-
-export default function ProductCard({ product, onQuickView, index = 0 }: ProductCardProps) {
+function ProductCard({ product, onQuickView, index = 0 }: ProductCardProps) {
   const [isTilting, setIsTilting] = useState(false)
   const [tiltStyle, setTiltStyle] = useState({ rotateX: 0, rotateY: 0 })
   const addItem = useCartStore((s) => s.addItem)
   const toggleItem = useWishlistStore((s) => s.toggleItem)
-  const isInWishlist = useWishlistStore((s) => s.isInWishlist)
   const goProduct = useNavStore((s) => s.goProduct)
-
-  const isWishlisted = isInWishlist(product.id)
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('fr-FR').format(price)
-  }
+  const isWishlisted = useWishlistStore((s) =>
+    s.items.some((i) => i.productId === product.id)
+  )
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -106,7 +72,7 @@ export default function ProductCard({ product, onQuickView, index = 0 }: Product
 
   const handleQuickView = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onQuickView?.()
+    onQuickView?.(product.id)
   }
 
   const handleClick = () => {
@@ -145,11 +111,12 @@ export default function ProductCard({ product, onQuickView, index = 0 }: Product
     >
       {/* Image */}
       <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-beige to-gold/10">
-        <img
+        <ProductImage
           src={product.images[0]}
           alt={product.name}
-          className="product-image w-full h-full object-cover"
-          loading="lazy"
+          fill
+          sizes="(max-width: 768px) 50vw, 25vw"
+          className="product-image object-cover"
         />
 
         {/* Badge */}
@@ -221,15 +188,15 @@ export default function ProductCard({ product, onQuickView, index = 0 }: Product
           {product.pricePromo ? (
             <>
               <span className="font-[family-name:var(--font-dm-sans)] text-base font-semibold text-gold">
-                {formatPrice(product.pricePromo)} FCFA
+                {formatPrice(product.pricePromo)}
               </span>
               <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid line-through">
-                {formatPrice(product.price)} FCFA
+                {formatPrice(product.price)}
               </span>
             </>
           ) : (
             <span className="font-[family-name:var(--font-dm-sans)] text-base font-semibold text-gold">
-              {formatPrice(product.price)} FCFA
+              {formatPrice(product.price)}
             </span>
           )}
         </div>
@@ -241,7 +208,7 @@ export default function ProductCard({ product, onQuickView, index = 0 }: Product
               <span
                 key={color}
                 className="w-3.5 h-3.5 rounded-full border border-gold/30"
-                style={{ backgroundColor: colorSwatchMap[color] || '#999' }}
+                style={getSwatchStyle(color)}
                 title={color}
               />
             ))}
@@ -254,3 +221,5 @@ export default function ProductCard({ product, onQuickView, index = 0 }: Product
     </motion.div>
   )
 }
+
+export default memo(ProductCard)

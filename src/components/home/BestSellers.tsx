@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, useInView } from 'framer-motion'
-import { Award, Eye, AlertCircle } from 'lucide-react'
-import type { Product } from '@/data/products'
+import { Award, Eye } from 'lucide-react'
+import { getBestSellers, type Product } from '@/data/products'
 import { useNavStore } from '@/stores/nav-store'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { Skeleton } from '@/components/ui/skeleton'
 import ProductCard from './ProductCard'
+import { ProductImage } from '@/components/ui/product-image'
 
 function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
   const [count, setCount] = useState(0)
@@ -38,62 +38,15 @@ function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: str
   )
 }
 
-function CardSkeleton() {
-  return (
-    <div className="glass-card overflow-hidden">
-      <Skeleton className="aspect-[3/4] rounded-none" />
-      <div className="p-4 space-y-2">
-        <Skeleton className="h-3 w-3/4" />
-        <Skeleton className="h-3 w-1/2" />
-        <Skeleton className="h-5 w-2/3" />
-      </div>
-    </div>
-  )
-}
-
 export default function BestSellers() {
-  const [bestSellers, setBestSellers] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [bestSellers] = useState<Product[]>(() => getBestSellers())
   const { goProduct } = useNavStore()
   const [quickViewProduct, setQuickViewProduct] = useState<string | null>(null)
 
   const selectedProduct = bestSellers.find((p) => p.id === quickViewProduct)
-
-  useEffect(() => {
-    async function fetchBestSellers() {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await fetch('/api/products?limit=100')
-        if (!res.ok) throw new Error('Failed to fetch products')
-        const data = await res.json()
-        const filtered = (data.products as Product[]).filter((p) => p.isBestSeller)
-        setBestSellers(filtered)
-      } catch {
-        setError('Impossible de charger les best-sellers')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchBestSellers()
+  const openQuickView = useCallback((productId: string) => {
+    setQuickViewProduct(productId)
   }, [])
-
-  const handleRetry = () => {
-    setLoading(true)
-    setError(null)
-    fetch('/api/products?limit=100')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed')
-        return res.json()
-      })
-      .then((data) => {
-        const filtered = (data.products as Product[]).filter((p) => p.isBestSeller)
-        setBestSellers(filtered)
-      })
-      .catch(() => setError('Impossible de charger les best-sellers'))
-      .finally(() => setLoading(false))
-  }
 
   return (
     <section className="py-16 sm:py-20 bg-cream">
@@ -134,36 +87,16 @@ export default function BestSellers() {
           </motion.div>
         </motion.div>
 
-        {/* Grid */}
-        {loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <AlertCircle className="w-10 h-10 text-caramel/50 mb-3" />
-            <p className="font-[family-name:var(--font-dm-sans)] text-text-mid text-sm mb-4">{error}</p>
-            <button
-              onClick={handleRetry}
-              className="btn-gold px-6 py-2.5 text-sm"
-            >
-              Réessayer
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {bestSellers.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                index={index}
-                onQuickView={() => setQuickViewProduct(product.id)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {bestSellers.map((product, index) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              index={index}
+              onQuickView={openQuickView}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Quick View Dialog */}
@@ -173,10 +106,12 @@ export default function BestSellers() {
           {selectedProduct && (
             <div className="flex flex-col sm:flex-row">
               <div className="relative aspect-[3/4] sm:aspect-auto sm:w-1/2 bg-gradient-to-br from-beige to-gold/10">
-                <img
+                <ProductImage
                   src={selectedProduct.images[0]}
                   alt={selectedProduct.name}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="320px"
+                  className="object-cover"
                 />
                 {selectedProduct.badge && (
                   <span className="absolute top-3 left-3 bg-gold text-white text-xs font-semibold px-3 py-1 rounded-full">

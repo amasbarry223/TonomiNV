@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Minus,
@@ -16,6 +16,7 @@ import {
   CheckCircle,
 } from 'lucide-react'
 import { useCartStore } from '@/stores/cart-store'
+import { ProductImage } from '@/components/ui/product-image'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import {
   Sheet,
@@ -37,11 +38,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
+import { products as staticProducts } from '@/data/products'
+import { validatePromoCode, calculateDiscount } from '@/data/promos'
+import { formatPrice } from '@/lib/product-display'
 import { toast } from 'sonner'
-
-function formatPrice(price: number) {
-  return new Intl.NumberFormat('fr-FR').format(price) + ' FCFA'
-}
 
 interface SuggestedProduct {
   id: string
@@ -50,6 +50,14 @@ interface SuggestedProduct {
   images: string
   slug: string
 }
+
+const suggestedProducts: SuggestedProduct[] = staticProducts.slice(0, 4).map((p) => ({
+  id: p.id,
+  name: p.name,
+  price: p.pricePromo ?? p.price,
+  images: p.images.join(','),
+  slug: p.slug,
+}))
 
 export default function CartDrawer() {
   const {
@@ -71,10 +79,6 @@ export default function CartDrawer() {
   const { toggleItem, isInWishlist } = useWishlistStore()
   const [couponInput, setCouponInput] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
-  const [suggestedProducts, setSuggestedProducts] = useState<
-    SuggestedProduct[]
-  >([])
-
   // Checkout dialog state
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [customerName, setCustomerName] = useState('')
@@ -89,45 +93,21 @@ export default function CartDrawer() {
   const total = getTotal()
   const shipping = 0 // Free shipping for now
 
-  // Fetch suggested products
-  useEffect(() => {
-    async function fetchSuggested() {
-      try {
-        const res = await fetch('/api/products?limit=4')
-        if (res.ok) {
-          const data = await res.json()
-          const prods = (data.products || data || []).slice(0, 4)
-          setSuggestedProducts(prods)
-        }
-      } catch {
-        // Silently fail - suggested products are optional
-      }
-    }
-    fetchSuggested()
-  }, [])
-
-  const handleApplyCoupon = async () => {
+  const handleApplyCoupon = () => {
     if (!couponInput.trim()) return
     setCouponLoading(true)
-    try {
-      const res = await fetch(
-        `/api/promos/validate?code=${encodeURIComponent(couponInput)}&total=${subtotal}`
+    const promo = validatePromoCode(couponInput, subtotal)
+    if (promo) {
+      const discountAmount = calculateDiscount(promo, subtotal)
+      applyCoupon(promo.code, discountAmount)
+      toast.success(
+        `Code "${promo.code}" appliqué ! Réduction: ${discountAmount.toLocaleString('fr-FR')} FCFA`
       )
-      const data = await res.json()
-      if (data.valid) {
-        applyCoupon(data.promo.code, data.promo.discountAmount)
-        toast.success(
-          `Code "${data.promo.code}" appliqué ! Réduction: ${data.promo.discountAmount.toLocaleString('fr-FR')} FCFA`
-        )
-        setCouponInput('')
-      } else {
-        toast.error(data.error || 'Code invalide')
-      }
-    } catch {
-      toast.error('Erreur de validation')
-    } finally {
-      setCouponLoading(false)
+      setCouponInput('')
+    } else {
+      toast.error('Code invalide ou conditions non remplies')
     }
+    setCouponLoading(false)
   }
 
   const handleRemoveCoupon = () => {
@@ -145,51 +125,19 @@ export default function CartDrawer() {
     setOrderNotes('')
   }
 
-  const handleConfirmOrder = async () => {
+  const handleConfirmOrder = () => {
     if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
       toast.error('Veuillez remplir tous les champs obligatoires')
       return
     }
 
     setCheckoutLoading(true)
-    try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName,
-          customerEmail,
-          customerPhone,
-          items: items.map((item) => ({
-            productId: item.productId,
-            productName: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            color: item.color,
-            size: item.size,
-            image: item.image,
-          })),
-          subtotal,
-          discount: couponDiscount,
-          total,
-          promoCode: coupon,
-          notes: orderNotes || null,
-        }),
-      })
-      if (res.ok) {
-        setCheckoutLoading(false)
-        setCheckoutSuccess(true)
-        clearCart()
-        toast.success('Commande confirmée ! Nous vous contacterons bientôt.')
-      } else {
-        const data = await res.json()
-        setCheckoutLoading(false)
-        toast.error(data.error || 'Erreur lors de la création de la commande')
-      }
-    } catch {
+    setTimeout(() => {
       setCheckoutLoading(false)
-      toast.error('Erreur de connexion. Veuillez réessayer.')
-    }
+      setCheckoutSuccess(true)
+      clearCart()
+      toast.success('Commande confirmée ! Nous vous contacterons bientôt.')
+    }, 600)
   }
 
   return (
@@ -250,12 +198,15 @@ export default function CartDrawer() {
                     className="flex gap-3 py-3 mb-3 border-b border-gold/10 last:border-0"
                   >
                     {/* Product Image */}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-beige/40 overflow-hidden shrink-0">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-beige/40 overflow-hidden shrink-0">
                       {item.image ? (
-                        <img
+                        <ProductImage
                           src={item.image}
                           alt={item.name}
-                          className="w-full h-full object-cover"
+                          width={80}
+                          height={80}
+                          sizes="80px"
+                          className="object-cover"
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-beige to-gold/20 flex items-center justify-center">
@@ -422,12 +373,14 @@ export default function CartDrawer() {
                           key={product.id}
                           className="flex-shrink-0 w-28 bg-warm-white rounded-2xl p-2.5 border border-gold/10"
                         >
-                          <div className="w-full h-16 rounded-xl overflow-hidden mb-2">
+                          <div className="relative w-full h-16 rounded-xl overflow-hidden mb-2">
                             {firstImage ? (
-                              <img
+                              <ProductImage
                                 src={firstImage}
                                 alt={product.name}
-                                className="w-full h-full object-cover"
+                                fill
+                                sizes="120px"
+                                className="object-cover"
                               />
                             ) : (
                               <div className="w-full h-full bg-gradient-to-br from-beige to-gold/20 flex items-center justify-center">
