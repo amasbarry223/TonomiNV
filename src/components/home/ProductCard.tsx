@@ -6,7 +6,7 @@ import { Heart, ShoppingBag, Star, Eye } from 'lucide-react'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { useNavStore } from '@/stores/nav-store'
-import { Product } from '@/data/products'
+import type { Product } from '@/data/products'
 
 interface ProductCardProps {
   product: Product

@@ -1,8 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Minus, Plus, Trash2, ShoppingBag, Tag } from 'lucide-react'
+import {
+  Minus,
+  Plus,
+  Trash2,
+  ShoppingBag,
+  Tag,
+  Loader2,
+  User,
+  Mail,
+  Phone,
+  FileText,
+  CheckCircle,
+} from 'lucide-react'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import {
@@ -12,29 +24,31 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-
-// Suggested products for the "Produits que vous aimerez" section
-const suggestedProducts = [
-  {
-    id: 'sug-1',
-    name: 'Bracelet Massaï Doré',
-    price: 15000,
-    image: '/placeholder-bracelet.jpg',
-  },
-  {
-    id: 'sug-2',
-    name: 'Sac Bandoulière Cuir',
-    price: 35000,
-    image: '/placeholder-sac.jpg',
-  },
-]
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('fr-FR').format(price) + ' FCFA'
+}
+
+interface SuggestedProduct {
+  id: string
+  name: string
+  price: number
+  images: string
+  slug: string
 }
 
 export default function CartDrawer() {
@@ -49,245 +63,596 @@ export default function CartDrawer() {
     coupon,
     couponDiscount,
     applyCoupon,
+    removeCoupon,
+    clearCart,
+    getTotal,
   } = useCartStore()
 
-  const { toggleItem, isWishlisted } = useWishlistStore()
+  const { toggleItem, isInWishlist } = useWishlistStore()
   const [couponInput, setCouponInput] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [suggestedProducts, setSuggestedProducts] = useState<
+    SuggestedProduct[]
+  >([])
+
+  // Checkout dialog state
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [customerName, setCustomerName] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [orderNotes, setOrderNotes] = useState('')
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false)
+
   const itemCount = getItemCount()
   const subtotal = getSubtotal()
-  const discountAmount = (subtotal * couponDiscount) / 100
-  const shipping = 2000
-  const total = subtotal - discountAmount + shipping
+  const total = getTotal()
+  const shipping = 0 // Free shipping for now
 
-  const handleApplyCoupon = () => {
-    if (couponInput.trim().toUpperCase() === 'TONOMI10') {
-      applyCoupon('TONOMI10', 10)
-      setCouponInput('')
-    } else if (couponInput.trim().toUpperCase() === 'BIENVENUE') {
-      applyCoupon('BIENVENUE', 15)
-      setCouponInput('')
+  // Fetch suggested products
+  useEffect(() => {
+    async function fetchSuggested() {
+      try {
+        const res = await fetch('/api/products?limit=4')
+        if (res.ok) {
+          const data = await res.json()
+          const prods = (data.products || data || []).slice(0, 4)
+          setSuggestedProducts(prods)
+        }
+      } catch {
+        // Silently fail - suggested products are optional
+      }
+    }
+    fetchSuggested()
+  }, [])
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return
+    setCouponLoading(true)
+    try {
+      const res = await fetch(
+        `/api/promos/validate?code=${encodeURIComponent(couponInput)}&total=${subtotal}`
+      )
+      const data = await res.json()
+      if (data.valid) {
+        applyCoupon(data.promo.code, data.promo.discountAmount)
+        toast.success(
+          `Code "${data.promo.code}" appliqué ! Réduction: ${data.promo.discountAmount.toLocaleString('fr-FR')} FCFA`
+        )
+        setCouponInput('')
+      } else {
+        toast.error(data.error || 'Code invalide')
+      }
+    } catch {
+      toast.error('Erreur de validation')
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    removeCoupon()
+    toast.info('Code promo retiré')
+  }
+
+  const handleCheckout = () => {
+    if (items.length === 0) return
+    setCheckoutOpen(true)
+    setCheckoutSuccess(false)
+    setCustomerName('')
+    setCustomerEmail('')
+    setCustomerPhone('')
+    setOrderNotes('')
+  }
+
+  const handleConfirmOrder = async () => {
+    if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+
+    setCheckoutLoading(true)
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName,
+          customerEmail,
+          customerPhone,
+          items: items.map((item) => ({
+            productId: item.productId,
+            productName: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            color: item.color,
+            size: item.size,
+            image: item.image,
+          })),
+          subtotal,
+          discount: couponDiscount,
+          total,
+          promoCode: coupon,
+          notes: orderNotes || null,
+        }),
+      })
+      if (res.ok) {
+        setCheckoutLoading(false)
+        setCheckoutSuccess(true)
+        clearCart()
+        toast.success('Commande confirmée ! Nous vous contacterons bientôt.')
+      } else {
+        const data = await res.json()
+        setCheckoutLoading(false)
+        toast.error(data.error || 'Erreur lors de la création de la commande')
+      }
+    } catch {
+      setCheckoutLoading(false)
+      toast.error('Erreur de connexion. Veuillez réessayer.')
     }
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={setCartOpen}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-md bg-cream border-l border-gold/20 flex flex-col p-0"
-      >
-        {/* Header */}
-        <SheetHeader className="p-5 pb-3">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="font-[family-name:var(--font-playfair)] text-xl text-text-dark">
-              Mon Panier
-            </SheetTitle>
-            <Badge className="bg-gold/10 text-gold border-0 font-[family-name:var(--font-dm-sans)] text-xs">
-              {itemCount} {itemCount > 1 ? 'articles' : 'article'}
-            </Badge>
-          </div>
-          <SheetDescription className="sr-only">
-            Votre panier d&apos;achats TONOMI
-          </SheetDescription>
-        </SheetHeader>
+    <>
+      <Sheet open={isOpen} onOpenChange={setCartOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md bg-cream border-l border-gold/20 flex flex-col p-0"
+        >
+          {/* Header */}
+          <SheetHeader className="p-5 pb-3">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="font-[family-name:var(--font-playfair)] text-xl text-text-dark">
+                Mon Panier
+              </SheetTitle>
+              <Badge className="bg-gold/10 text-gold border-0 font-[family-name:var(--font-dm-sans)] text-xs">
+                {itemCount} {itemCount > 1 ? 'articles' : 'article'}
+              </Badge>
+            </div>
+            <SheetDescription className="sr-only">
+              Votre panier d&apos;achats TONOMI
+            </SheetDescription>
+          </SheetHeader>
 
-        <Separator className="bg-gold/15" />
+          <Separator className="bg-gold/15" />
 
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
-          {items.length === 0 ? (
-            /* Empty State */
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-20 h-20 rounded-full bg-beige/60 flex items-center justify-center mb-5">
-                <ShoppingBag className="w-10 h-10 text-gold/50" />
+          {/* Cart Items */}
+          <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
+            {items.length === 0 ? (
+              /* Empty State */
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-20 h-20 rounded-full bg-beige/60 flex items-center justify-center mb-5">
+                  <ShoppingBag className="w-10 h-10 text-gold/50" />
+                </div>
+                <h3 className="font-[family-name:var(--font-cormorant)] text-xl font-semibold text-text-dark mb-2">
+                  Votre panier est vide
+                </h3>
+                <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid max-w-[220px]">
+                  Découvrez nos accessoires élégants et ajoutez vos favoris
+                </p>
+                <Button
+                  onClick={() => setCartOpen(false)}
+                  className="mt-6 btn-gold px-6 py-2 h-auto text-sm border-0"
+                >
+                  Explorer la boutique
+                </Button>
               </div>
-              <h3 className="font-[family-name:var(--font-cormorant)] text-xl font-semibold text-text-dark mb-2">
-                Votre panier est vide
-              </h3>
-              <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid max-w-[220px]">
-                Découvrez nos accessoires élégants et ajoutez vos favoris
+            ) : (
+              <AnimatePresence mode="popLayout">
+                {items.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="flex gap-3 py-3 mb-3 border-b border-gold/10 last:border-0"
+                  >
+                    {/* Product Image */}
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-beige/40 overflow-hidden shrink-0">
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-beige to-gold/20 flex items-center justify-center">
+                          <ShoppingBag className="w-6 h-6 text-gold/40" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product Info */}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-[family-name:var(--font-dm-sans)] text-sm font-medium text-text-dark truncate">
+                        {item.name}
+                      </h4>
+                      {(item.color || item.size) && (
+                        <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mt-0.5">
+                          {[item.color, item.size]
+                            .filter(Boolean)
+                            .join(' / ')}
+                        </p>
+                      )}
+                      <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-gold mt-1">
+                        {formatPrice(item.price)}
+                      </p>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity - 1)
+                            }
+                            className="w-6 h-6 rounded-full bg-beige/60 flex items-center justify-center hover:bg-gold/20 transition-colors"
+                            aria-label="Diminuer"
+                          >
+                            <Minus className="w-3 h-3 text-text-mid" />
+                          </button>
+                          <span className="font-[family-name:var(--font-dm-sans)] text-xs font-medium w-6 text-center text-text-dark">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity + 1)
+                            }
+                            className="w-6 h-6 rounded-full bg-beige/60 flex items-center justify-center hover:bg-gold/20 transition-colors"
+                            aria-label="Augmenter"
+                          >
+                            <Plus className="w-3 h-3 text-text-mid" />
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="p-1 rounded-full hover:bg-red-50 transition-colors"
+                          aria-label="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            )}
+          </div>
+
+          {/* Footer: Summary + Actions */}
+          {items.length > 0 && (
+            <div className="border-t border-gold/15 bg-cream">
+              {/* Coupon Input */}
+              <div className="px-5 pt-4">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gold/50" />
+                    <Input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      placeholder="Code promo"
+                      className="pl-8 h-9 text-sm bg-warm-white border-gold/20 focus:border-gold rounded-xl font-[family-name:var(--font-dm-sans)]"
+                      disabled={couponLoading}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleApplyCoupon()
+                      }}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleApplyCoupon}
+                    variant="outline"
+                    disabled={couponLoading || !couponInput.trim()}
+                    className="h-9 px-3 border-gold/30 text-gold hover:bg-gold/10 rounded-xl font-[family-name:var(--font-dm-sans)] text-sm"
+                  >
+                    {couponLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      'Appliquer'
+                    )}
+                  </Button>
+                </div>
+                {coupon && (
+                  <div className="flex items-center justify-between mt-1.5">
+                    <p className="text-xs text-green-600 font-[family-name:var(--font-dm-sans)]">
+                      ✨ Code &quot;{coupon}&quot; appliqué — Réduction:{' '}
+                      {couponDiscount.toLocaleString('fr-FR')} FCFA
+                    </p>
+                    <button
+                      onClick={handleRemoveCoupon}
+                      className="text-xs text-red-400 hover:text-red-600 font-[family-name:var(--font-dm-sans)] underline"
+                    >
+                      Retirer
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Price Summary */}
+              <div className="px-5 pt-3 pb-2 space-y-1.5">
+                <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
+                  <span>Sous-total</span>
+                  <span>{formatPrice(subtotal)}</span>
+                </div>
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-sm text-green-600">
+                    <span>Réduction</span>
+                    <span>-{formatPrice(couponDiscount)}</span>
+                  </div>
+                )}
+                {shipping > 0 && (
+                  <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
+                    <span>Livraison estimée</span>
+                    <span>{formatPrice(shipping)}</span>
+                  </div>
+                )}
+                <Separator className="bg-gold/15 my-1" />
+                <div className="flex justify-between font-[family-name:var(--font-playfair)] text-lg font-semibold text-text-dark">
+                  <span>Total</span>
+                  <span className="text-gold">
+                    {formatPrice(total + shipping)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Checkout Button */}
+              <div className="px-5 pb-3">
+                <Button
+                  onClick={handleCheckout}
+                  className="w-full btn-gold h-12 text-sm tracking-wider border-0"
+                >
+                  Commander
+                </Button>
+              </div>
+
+              {/* Suggested Products */}
+              {suggestedProducts.length > 0 && (
+                <div className="px-5 pb-5">
+                  <p className="font-[family-name:var(--font-cormorant)] text-sm font-semibold text-text-dark mb-3">
+                    Produits que vous aimerez
+                  </p>
+                  <div className="flex gap-3 overflow-x-auto pb-1">
+                    {suggestedProducts.map((product) => {
+                      const firstImage = product.images
+                        ? product.images.split(',')[0]
+                        : ''
+                      return (
+                        <div
+                          key={product.id}
+                          className="flex-shrink-0 w-28 bg-warm-white rounded-2xl p-2.5 border border-gold/10"
+                        >
+                          <div className="w-full h-16 rounded-xl overflow-hidden mb-2">
+                            {firstImage ? (
+                              <img
+                                src={firstImage}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-beige to-gold/20 flex items-center justify-center">
+                                <ShoppingBag className="w-5 h-5 text-gold/30" />
+                              </div>
+                            )}
+                          </div>
+                          <p className="font-[family-name:var(--font-dm-sans)] text-[11px] text-text-dark truncate">
+                            {product.name}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="font-[family-name:var(--font-dm-sans)] text-[11px] font-semibold text-gold">
+                              {formatPrice(product.price)}
+                            </span>
+                            <button
+                              onClick={() => {
+                                if (!isInWishlist(product.id)) {
+                                  toggleItem({
+                                    id: product.id,
+                                    productId: product.id,
+                                    name: product.name,
+                                    price: product.price,
+                                    image: firstImage,
+                                    category: '',
+                                    addedAt: new Date().toISOString(),
+                                  })
+                                  toast.success(
+                                    `${product.name} ajouté aux favoris`
+                                  )
+                                }
+                              }}
+                              className="text-text-mid hover:text-gold transition-colors"
+                              aria-label="Ajouter aux favoris"
+                            >
+                              <ShoppingBag className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Checkout Dialog */}
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="sm:max-w-lg bg-cream border-gold/20 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-[family-name:var(--font-playfair)] text-2xl text-text-dark">
+              {checkoutSuccess ? 'Commande confirmée !' : 'Finaliser la commande'}
+            </DialogTitle>
+            <DialogDescription className="font-[family-name:var(--font-dm-sans)] text-text-mid">
+              {checkoutSuccess
+                ? 'Merci pour votre commande. Nous vous contacterons bientôt.'
+                : 'Remplissez vos informations pour confirmer votre commande.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {checkoutSuccess ? (
+            <div className="py-8 text-center">
+              <div className="w-20 h-20 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-4">
+                <CheckCircle className="w-10 h-10 text-green-500" />
+              </div>
+              <p className="font-[family-name:var(--font-dm-sans)] text-text-dark font-medium">
+                Votre commande a été enregistrée avec succès !
+              </p>
+              <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid mt-2">
+                Vous recevrez un email de confirmation shortly.
               </p>
               <Button
-                onClick={() => setCartOpen(false)}
-                className="mt-6 btn-gold px-6 py-2 h-auto text-sm border-0"
+                onClick={() => {
+                  setCheckoutOpen(false)
+                  setCartOpen(false)
+                }}
+                className="mt-6 btn-gold px-8 h-11 border-0"
               >
-                Explorer la boutique
+                Continuer mes achats
               </Button>
             </div>
           ) : (
-            <AnimatePresence mode="popLayout">
-              {items.map((item) => (
-                <motion.div
-                  key={item.id}
-                  layout
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className="flex gap-3 py-3 mb-3 border-b border-gold/10 last:border-0"
-                >
-                  {/* Product Image */}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-beige/40 overflow-hidden shrink-0">
-                    <div className="w-full h-full bg-gradient-to-br from-beige to-gold/20 flex items-center justify-center">
-                      <ShoppingBag className="w-6 h-6 text-gold/40" />
-                    </div>
-                  </div>
-
-                  {/* Product Info */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-[family-name:var(--font-dm-sans)] text-sm font-medium text-text-dark truncate">
-                      {item.name}
-                    </h4>
-                    {(item.color || item.size) && (
-                      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mt-0.5">
-                        {[item.color, item.size].filter(Boolean).join(' / ')}
-                      </p>
-                    )}
-                    <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-gold mt-1">
-                      {formatPrice(item.price)}
-                    </p>
-
-                    {/* Quantity Controls */}
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-6 h-6 rounded-full bg-beige/60 flex items-center justify-center hover:bg-gold/20 transition-colors"
-                          aria-label="Diminuer"
-                        >
-                          <Minus className="w-3 h-3 text-text-mid" />
-                        </button>
-                        <span className="font-[family-name:var(--font-dm-sans)] text-xs font-medium w-6 text-center text-text-dark">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-6 h-6 rounded-full bg-beige/60 flex items-center justify-center hover:bg-gold/20 transition-colors"
-                          aria-label="Augmenter"
-                        >
-                          <Plus className="w-3 h-3 text-text-mid" />
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="p-1 rounded-full hover:bg-red-50 transition-colors"
-                        aria-label="Supprimer"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-400" />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
-        </div>
-
-        {/* Footer: Summary + Actions */}
-        {items.length > 0 && (
-          <div className="border-t border-gold/15 bg-cream">
-            {/* Coupon Input */}
-            <div className="px-5 pt-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gold/50" />
+            <div className="space-y-5 mt-2">
+              {/* Customer Info Form */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
+                    <User className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
+                    Nom complet <span className="text-caramel">*</span>
+                  </Label>
                   <Input
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    placeholder="Code promo"
-                    className="pl-8 h-9 text-sm bg-warm-white border-gold/20 focus:border-gold rounded-xl font-[family-name:var(--font-dm-sans)]"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Votre nom"
+                    className="bg-warm-white border-gold/20 focus:border-gold h-11 font-[family-name:var(--font-dm-sans)] rounded-xl"
                   />
                 </div>
-                <Button
-                  onClick={handleApplyCoupon}
-                  variant="outline"
-                  className="h-9 px-3 border-gold/30 text-gold hover:bg-gold/10 rounded-xl font-[family-name:var(--font-dm-sans)] text-sm"
-                >
-                  Appliquer
-                </Button>
-              </div>
-              {coupon && (
-                <p className="text-xs text-green-600 mt-1.5 font-[family-name:var(--font-dm-sans)]">
-                  ✨ Code &quot;{coupon.code}&quot; appliqué — {coupon.discount}% de réduction
-                </p>
-              )}
-            </div>
 
-            {/* Price Summary */}
-            <div className="px-5 pt-3 pb-2 space-y-1.5">
-              <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
-                <span>Sous-total</span>
-                <span>{formatPrice(subtotal)}</span>
-              </div>
-              {couponDiscount > 0 && (
-                <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-sm text-green-600">
-                  <span>Réduction ({couponDiscount}%)</span>
-                  <span>-{formatPrice(discountAmount)}</span>
+                <div className="space-y-1.5">
+                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
+                    <Mail className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
+                    Email <span className="text-caramel">*</span>
+                  </Label>
+                  <Input
+                    type="email"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    placeholder="votre@email.com"
+                    className="bg-warm-white border-gold/20 focus:border-gold h-11 font-[family-name:var(--font-dm-sans)] rounded-xl"
+                  />
                 </div>
-              )}
-              <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
-                <span>Livraison estimée</span>
-                <span>{formatPrice(shipping)}</span>
-              </div>
-              <Separator className="bg-gold/15 my-1" />
-              <div className="flex justify-between font-[family-name:var(--font-playfair)] text-lg font-semibold text-text-dark">
-                <span>Total</span>
-                <span className="text-gold">{formatPrice(total)}</span>
-              </div>
-            </div>
 
-            {/* Checkout Button */}
-            <div className="px-5 pb-3">
-              <Button className="w-full btn-gold h-12 text-sm tracking-wider border-0">
-                Commander
+                <div className="space-y-1.5">
+                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
+                    <Phone className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
+                    Téléphone <span className="text-caramel">*</span>
+                  </Label>
+                  <Input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="+223 XX XX XX XX"
+                    className="bg-warm-white border-gold/20 focus:border-gold h-11 font-[family-name:var(--font-dm-sans)] rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
+                    <FileText className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
+                    Notes (optionnel)
+                  </Label>
+                  <Textarea
+                    value={orderNotes}
+                    onChange={(e) => setOrderNotes(e.target.value)}
+                    placeholder="Instructions spéciales, adresse de livraison..."
+                    rows={2}
+                    className="bg-warm-white border-gold/20 focus:border-gold font-[family-name:var(--font-dm-sans)] rounded-xl resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div className="glass-card p-4 warm-shadow">
+                <h4 className="font-[family-name:var(--font-playfair)] text-base font-semibold text-text-dark mb-3">
+                  Récapitulatif
+                </h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex justify-between items-start gap-2"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-dark truncate">
+                          {item.name}
+                          {item.quantity > 1 && (
+                            <span className="text-text-mid">
+                              {' '}
+                              x{item.quantity}
+                            </span>
+                          )}
+                        </p>
+                        {item.color && (
+                          <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid">
+                            {item.color}
+                            {item.size ? ` / ${item.size}` : ''}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-[family-name:var(--font-dm-sans)] text-xs font-medium text-text-dark whitespace-nowrap">
+                        {formatPrice(item.price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator className="bg-gold/15 my-3" />
+
+                <div className="space-y-1">
+                  <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
+                    <span>Sous-total</span>
+                    <span>{formatPrice(subtotal)}</span>
+                  </div>
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-xs text-green-600">
+                      <span>
+                        Réduction{coupon ? ` (${coupon})` : ''}
+                      </span>
+                      <span>-{formatPrice(couponDiscount)}</span>
+                    </div>
+                  )}
+                  <Separator className="bg-gold/15 my-1" />
+                  <div className="flex justify-between font-[family-name:var(--font-playfair)] text-base font-semibold text-text-dark">
+                    <span>Total</span>
+                    <span className="text-gold">{formatPrice(total)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Confirm Button */}
+              <Button
+                onClick={handleConfirmOrder}
+                disabled={
+                  checkoutLoading ||
+                  !customerName.trim() ||
+                  !customerEmail.trim() ||
+                  !customerPhone.trim()
+                }
+                className="w-full btn-gold h-12 text-sm tracking-wider border-0"
+              >
+                {checkoutLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Traitement en cours...
+                  </>
+                ) : (
+                  'Confirmer la commande'
+                )}
               </Button>
             </div>
-
-            {/* Suggested Products */}
-            <div className="px-5 pb-5">
-              <p className="font-[family-name:var(--font-cormorant)] text-sm font-semibold text-text-dark mb-3">
-                Produits que vous aimerez
-              </p>
-              <div className="flex gap-3">
-                {suggestedProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="flex-1 bg-warm-white rounded-2xl p-3 border border-gold/10"
-                  >
-                    <div className="w-full h-16 rounded-xl bg-gradient-to-br from-beige to-gold/20 mb-2 flex items-center justify-center">
-                      <ShoppingBag className="w-5 h-5 text-gold/30" />
-                    </div>
-                    <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-dark truncate">
-                      {product.name}
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="font-[family-name:var(--font-dm-sans)] text-xs font-semibold text-gold">
-                        {formatPrice(product.price)}
-                      </span>
-                      <button
-                        onClick={() => {
-                          if (!isWishlisted(product.id)) {
-                            toggleItem({
-                              id: product.id,
-                              name: product.name,
-                              price: product.price,
-                              image: product.image,
-                            })
-                          }
-                        }}
-                        className="text-text-mid hover:text-gold transition-colors"
-                        aria-label="Ajouter aux favoris"
-                      >
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

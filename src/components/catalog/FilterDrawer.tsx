@@ -10,8 +10,13 @@ import {
 } from '@/components/ui/sheet'
 import FilterSidebar from './FilterSidebar'
 import { useFilterStore } from '@/stores/filter-store'
+import type { Category } from '@/data/categories'
 
-export default function FilterDrawer() {
+interface FilterDrawerProps {
+  categories?: Category[]
+}
+
+export default function FilterDrawer({ categories = [] }: FilterDrawerProps) {
   const { hasActiveFilters } = useFilterStore()
   const active = hasActiveFilters()
 
@@ -33,7 +38,7 @@ export default function FilterDrawer() {
           </SheetTitle>
         </SheetHeader>
         <div className="px-4 pb-8">
-          <FilterSidebar />
+          <FilterSidebar categories={categories} />
         </div>
       </SheetContent>
     </Sheet>

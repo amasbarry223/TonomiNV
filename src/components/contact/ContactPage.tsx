@@ -175,12 +175,31 @@ function ContactForm() {
 
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true)
-    // Simulate submission
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsSubmitting(false)
-    setCharCount(0)
-    toast.success('Message envoyé avec succès ! Nous vous répondrons sous 24h.')
-    reset()
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          subject: data.subject,
+          message: data.message,
+        }),
+      })
+      if (res.ok) {
+        setIsSubmitting(false)
+        setCharCount(0)
+        toast.success('Message envoyé avec succès ! Nous vous répondrons sous 24h.')
+        reset()
+      } else {
+        const result = await res.json()
+        setIsSubmitting(false)
+        toast.error(result.error || 'Erreur lors de l\'envoi du message')
+      }
+    } catch {
+      setIsSubmitting(false)
+      toast.error('Erreur de connexion. Veuillez réessayer.')
+    }
   }
 
   return (

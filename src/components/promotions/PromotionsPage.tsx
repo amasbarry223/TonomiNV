@@ -13,14 +13,15 @@ import {
   Heart,
   Star,
   ArrowRight,
-  Filter,
+  AlertCircle,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { getPromoProducts, getProductById, type Product } from '@/data/products'
-import { promoCodes, flashSales, getActiveFlashSales, type PromoCode, type FlashSale } from '@/data/promos'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { Product } from '@/data/products'
+import type { PromoCode, FlashSale } from '@/data/promos'
 import { useCartStore } from '@/stores/cart-store'
 import { useNavStore } from '@/stores/nav-store'
 import { toast } from 'sonner'
@@ -60,12 +61,15 @@ function FlipDigit({ value, label }: { value: number; label: string }) {
 }
 
 // ─── Countdown Timer ──────────────────────────────────────────────────────────
-function SaleCountdown() {
+function SaleCountdown({ endsAt }: { endsAt?: string }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
 
   useEffect(() => {
-    const endDate = new Date()
-    endDate.setDate(endDate.getDate() + 7)
+    const endDate = endsAt ? new Date(endsAt) : (() => {
+      const d = new Date()
+      d.setDate(d.getDate() + 7)
+      return d
+    })()
 
     const tick = () => {
       const now = new Date()
@@ -81,7 +85,7 @@ function SaleCountdown() {
     tick()
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [endsAt])
 
   return (
     <div className="flex items-center gap-3 sm:gap-4">
@@ -135,9 +139,9 @@ function PromoProductCard({ product }: { product: Product }) {
                 name: product.name,
                 price: product.pricePromo ?? product.price,
                 quantity: 1,
-                color: product.colors[0],
-                size: product.sizes[0],
-                image: product.images[0],
+                color: product.colors[0] || '',
+                size: product.sizes[0] || '',
+                image: product.images[0] || '',
               })
               toast.success(`${product.name} ajouté au panier`)
             }}
@@ -231,9 +235,9 @@ function FlashSaleCard({ sale, product }: { sale: FlashSale; product: Product })
                 name: product.name,
                 price: promoPrice,
                 quantity: 1,
-                color: product.colors[0],
-                size: product.sizes[0],
-                image: product.images[0],
+                color: product.colors[0] || '',
+                size: product.sizes[0] || '',
+                image: product.images[0] || '',
               })
               toast.success(`${product.name} ajouté au panier`)
             }}
@@ -337,18 +341,20 @@ function BundleCard({
   bundlePrice,
   description,
   icon,
+  productsMap,
 }: {
   title: string
   productIds: string[]
   bundlePrice: number
   description: string
   icon: React.ReactNode
+  productsMap: Record<string, Product>
 }) {
   const addItem = useCartStore((s) => s.addItem)
-  const bundleProducts = productIds.map((id) => getProductById(id)).filter(Boolean) as Product[]
+  const bundleProducts = productIds.map((id) => productsMap[id]).filter(Boolean) as Product[]
   const originalTotal = bundleProducts.reduce((sum, p) => sum + p.price, 0)
   const savings = originalTotal - bundlePrice
-  const savingsPercent = Math.round((savings / originalTotal) * 100)
+  const savingsPercent = originalTotal > 0 ? Math.round((savings / originalTotal) * 100) : 0
 
   const handleAddBundle = () => {
     bundleProducts.forEach((p) => {
@@ -356,11 +362,11 @@ function BundleCard({
         id: `${p.id}-${p.colors[0]}-${p.sizes[0]}-bundle`,
         productId: p.id,
         name: p.name,
-        price: Math.round(p.price * (bundlePrice / originalTotal)),
+        price: Math.round(p.price * (bundlePrice / (originalTotal || 1))),
         quantity: 1,
-        color: p.colors[0],
-        size: p.sizes[0],
-        image: p.images[0],
+        color: p.colors[0] || '',
+        size: p.sizes[0] || '',
+        image: p.images[0] || '',
       })
     })
     toast.success(`Pack "${title}" ajouté au panier !`)
@@ -424,11 +430,121 @@ function BundleCard({
   )
 }
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+function PromoCardSkeleton() {
+  return (
+    <div className="glass-card overflow-hidden">
+      <Skeleton className="aspect-[3/4] rounded-none" />
+      <div className="p-4 space-y-2">
+        <Skeleton className="h-3 w-3/4" />
+        <Skeleton className="h-5 w-1/2" />
+      </div>
+    </div>
+  )
+}
+
+function PromoCodeSkeleton() {
+  return (
+    <div className="glass-card p-5 warm-shadow">
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-3 w-2/3" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-20" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Promotions Page ─────────────────────────────────────────────────────
 export default function PromotionsPage() {
   const [activeFilter, setActiveFilter] = useState('tout')
-  const promoProducts = getPromoProducts()
-  const activeFlashSales = getActiveFlashSales()
+  const [promoProducts, setPromoProducts] = useState<Product[]>([])
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
+  const [flashSales, setFlashSales] = useState<FlashSale[]>([])
+  const [productsMap, setProductsMap] = useState<Record<string, Product>>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Find the earliest flash sale end date for countdown
+  const earliestEnd = flashSales
+    .filter((s) => s.stockLeft > 0 && new Date(s.endsAt) > new Date())
+    .sort((a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime())[0]?.endsAt
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true)
+        setError(null)
+        const [productsRes, promosRes, flashSalesRes] = await Promise.all([
+          fetch('/api/products?limit=100'),
+          fetch('/api/promos'),
+          fetch('/api/flash-sales'),
+        ])
+        if (!productsRes.ok || !promosRes.ok || !flashSalesRes.ok) throw new Error('Failed to fetch')
+
+        const productsData = await productsRes.json()
+        const promosData = await promosRes.json()
+        const flashSalesData = await flashSalesRes.json()
+
+        const allProducts = productsData.products as Product[]
+        // Filter products with promo prices
+        const filtered = allProducts.filter((p) => p.pricePromo !== undefined && p.pricePromo !== null)
+        setPromoProducts(filtered)
+
+        // Build products map for flash sale lookups and bundles
+        const map: Record<string, Product> = {}
+        allProducts.forEach((p) => { map[p.id] = p })
+        setProductsMap(map)
+
+        // Filter active promo codes (valid and active)
+        const now = new Date()
+        const activePromos = (promosData as (PromoCode & { isActive?: boolean })[]).filter(
+          (p) => p.isActive !== false && new Date(p.validUntil) > now
+        )
+        setPromoCodes(activePromos)
+
+        // Filter active flash sales
+        const activeFlashSales = (flashSalesData as (FlashSale & { isActive?: boolean })[]).filter(
+          (s) => s.isActive !== false && s.stockLeft > 0 && new Date(s.endsAt) > now
+        )
+        setFlashSales(activeFlashSales)
+      } catch {
+        setError('Impossible de charger les promotions')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const handleRetry = () => {
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      fetch('/api/products?limit=100'),
+      fetch('/api/promos'),
+      fetch('/api/flash-sales'),
+    ])
+      .then(async ([productsRes, promosRes, flashSalesRes]) => {
+        if (!productsRes.ok || !promosRes.ok || !flashSalesRes.ok) throw new Error('Failed')
+        const productsData = await productsRes.json()
+        const promosData = await promosRes.json()
+        const flashSalesData = await flashSalesRes.json()
+        const allProducts = productsData.products as Product[]
+        setPromoProducts(allProducts.filter((p) => p.pricePromo !== undefined && p.pricePromo !== null))
+        const map: Record<string, Product> = {}
+        allProducts.forEach((p) => { map[p.id] = p })
+        setProductsMap(map)
+        const now = new Date()
+        setPromoCodes((promosData as (PromoCode & { isActive?: boolean })[]).filter((p) => p.isActive !== false && new Date(p.validUntil) > now))
+        setFlashSales((flashSalesData as (FlashSale & { isActive?: boolean })[]).filter((s) => s.isActive !== false && s.stockLeft > 0 && new Date(s.endsAt) > now))
+      })
+      .catch(() => setError('Impossible de charger les promotions'))
+      .finally(() => setLoading(false))
+  }
 
   const filteredProducts = activeFilter === 'tout'
     ? promoProducts
@@ -485,7 +601,7 @@ export default function PromotionsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <SaleCountdown />
+              <SaleCountdown endsAt={earliestEnd} />
             </motion.div>
 
             <motion.p
@@ -519,179 +635,221 @@ export default function PromotionsPage() {
         </div>
       </section>
 
-      {/* ── Offres du Jour ── */}
-      <section className="py-12 sm:py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="flex items-center gap-3 mb-8"
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <AlertCircle className="w-10 h-10 text-caramel/50 mb-3" />
+          <p className="font-[family-name:var(--font-dm-sans)] text-text-mid text-sm mb-4">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="btn-gold px-6 py-2.5 text-sm"
           >
-            <div className="w-10 h-10 rounded-full bg-caramel/10 flex items-center justify-center">
-              <Tag className="w-5 h-5 text-caramel" />
-            </div>
-            <div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
-                Offres du Jour
-              </h2>
-              <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
-                Nos meilleures promotions du moment
-              </p>
-            </div>
-          </motion.div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {filteredProducts.map((product, i) => (
+            Réessayer
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* ── Offres du Jour ── */}
+          <section className="py-12 sm:py-16">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 30 }}
+                className="flex items-center gap-3 mb-8"
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="w-10 h-10 rounded-full bg-caramel/10 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-caramel" />
+                </div>
+                <div>
+                  <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
+                    Offres du Jour
+                  </h2>
+                  <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
+                    Nos meilleures promotions du moment
+                  </p>
+                </div>
+              </motion.div>
+
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <PromoCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {filteredProducts.map((product, i) => (
+                    <motion.div
+                      key={product.id}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.4, delay: i * 0.08 }}
+                    >
+                      <PromoProductCard product={product} />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {!loading && filteredProducts.length === 0 && (
+                <div className="text-center py-12">
+                  <Tag className="w-12 h-12 text-gold/30 mx-auto mb-3" />
+                  <p className="font-[family-name:var(--font-dm-sans)] text-text-mid">
+                    Aucune promotion dans cette catégorie pour le moment.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* ── Ventes Flash ── */}
+          <section className="py-12 sm:py-16 bg-warm-white">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <motion.div
+                className="flex items-center gap-3 mb-8"
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="w-10 h-10 rounded-full bg-caramel/10 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-caramel" />
+                </div>
+                <div>
+                  <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
+                    Ventes Flash
+                  </h2>
+                  <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
+                    Dépêchez-vous, stock limité !
+                  </p>
+                </div>
+              </motion.div>
+
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <PromoCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {flashSales.map((sale, i) => {
+                    const product = productsMap[sale.productId]
+                    if (!product) return null
+                    return (
+                      <motion.div
+                        key={sale.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.4, delay: i * 0.08 }}
+                      >
+                        <FlashSaleCard sale={sale} product={product} />
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* ── Codes Promo ── */}
+          <section className="py-12 sm:py-16">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <motion.div
+                className="flex items-center gap-3 mb-8"
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-gold" />
+                </div>
+                <div>
+                  <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
+                    Codes Promo
+                  </h2>
+                  <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
+                    Utilisez ces codes lors de votre commande
+                  </p>
+                </div>
+              </motion.div>
+
+              {loading ? (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <PromoCodeSkeleton key={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {promoCodes.map((promo, i) => (
+                    <motion.div
+                      key={promo.id}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.4, delay: i * 0.08 }}
+                    >
+                      <PromoCodeCard promo={promo} />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* ── Packs & Bundles ── */}
+          <section className="py-12 sm:py-16 bg-beige/30">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <motion.div
+                className="text-center mb-10"
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.08 }}
+                transition={{ duration: 0.5 }}
               >
-                <PromoProductCard product={product} />
+                <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
+                  Packs & Bundles
+                </h2>
+                <p className="font-[family-name:var(--font-dm-sans)] text-text-mid mt-2">
+                  Économisez encore plus avec nos combinaisons exclusives
+                </p>
               </motion.div>
-            ))}
-          </div>
 
-          {filteredProducts.length === 0 && (
-            <div className="text-center py-12">
-              <Tag className="w-12 h-12 text-gold/30 mx-auto mb-3" />
-              <p className="font-[family-name:var(--font-dm-sans)] text-text-mid">
-                Aucune promotion dans cette catégorie pour le moment.
-              </p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <BundleCard
+                  title="Pack Élégance"
+                  productIds={['prod-001', 'prod-002', 'prod-003']}
+                  bundlePrice={35000}
+                  description="Le combo parfait pour briller"
+                  icon={<Star className="w-6 h-6 text-gold" />}
+                  productsMap={productsMap}
+                />
+                <BundleCard
+                  title="Pack Aventure"
+                  productIds={['prod-008', 'prod-018', 'prod-013']}
+                  bundlePrice={62000}
+                  description="Prête pour toutes les occasions"
+                  icon={<ShoppingBag className="w-6 h-6 text-gold" />}
+                  productsMap={productsMap}
+                />
+                <BundleCard
+                  title="Pack Royal"
+                  productIds={['prod-005', 'prod-035', 'prod-032']}
+                  bundlePrice={95000}
+                  description="Luxe et prestige au rendez-vous"
+                  icon={<Package className="w-6 h-6 text-gold" />}
+                  productsMap={productsMap}
+                />
+              </div>
             </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── Ventes Flash ── */}
-      <section className="py-12 sm:py-16 bg-warm-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="flex items-center gap-3 mb-8"
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="w-10 h-10 rounded-full bg-caramel/10 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-caramel" />
-            </div>
-            <div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
-                Ventes Flash
-              </h2>
-              <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
-                Dépêchez-vous, stock limité !
-              </p>
-            </div>
-          </motion.div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {activeFlashSales.map((sale, i) => {
-              const product = getProductById(sale.productId)
-              if (!product) return null
-              return (
-                <motion.div
-                  key={sale.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: i * 0.08 }}
-                >
-                  <FlashSaleCard sale={sale} product={product} />
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Codes Promo ── */}
-      <section className="py-12 sm:py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="flex items-center gap-3 mb-8"
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center">
-              <Tag className="w-5 h-5 text-gold" />
-            </div>
-            <div>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
-                Codes Promo
-              </h2>
-              <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
-                Utilisez ces codes lors de votre commande
-              </p>
-            </div>
-          </motion.div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {promoCodes.map((promo, i) => (
-              <motion.div
-                key={promo.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.08 }}
-              >
-                <PromoCodeCard promo={promo} />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Packs & Bundles ── */}
-      <section className="py-12 sm:py-16 bg-beige/30">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="text-center mb-10"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
-              Packs & Bundles
-            </h2>
-            <p className="font-[family-name:var(--font-dm-sans)] text-text-mid mt-2">
-              Économisez encore plus avec nos combinaisons exclusives
-            </p>
-          </motion.div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <BundleCard
-              title="Pack Élégance"
-              productIds={['prod-001', 'prod-002', 'prod-003']}
-              bundlePrice={35000}
-              description="Le combo parfait pour briller"
-              icon={<Star className="w-6 h-6 text-gold" />}
-            />
-            <BundleCard
-              title="Pack Aventure"
-              productIds={['prod-008', 'prod-018', 'prod-013']}
-              bundlePrice={62000}
-              description="Prête pour toutes les occasions"
-              icon={<ShoppingBag className="w-6 h-6 text-gold" />}
-            />
-            <BundleCard
-              title="Pack Royal"
-              productIds={['prod-005', 'prod-035', 'prod-032']}
-              bundlePrice={95000}
-              description="Luxe et prestige au rendez-vous"
-              icon={<Package className="w-6 h-6 text-gold" />}
-            />
-          </div>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
     </div>
   )
 }

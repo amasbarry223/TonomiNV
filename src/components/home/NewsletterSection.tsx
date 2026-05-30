@@ -10,7 +10,7 @@ export default function NewsletterSection() {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !email.includes('@')) {
       toast.error('Veuillez entrer une adresse email valide')
@@ -18,15 +18,32 @@ export default function NewsletterSection() {
     }
 
     setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      setIsSubmitted(true)
-      toast.success('Bienvenue ! Votre code de -10% arrive bientôt 🎉', {
-        description: 'Vérifiez votre boîte mail.',
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       })
-      setEmail('')
-    }, 1000)
+      if (res.ok) {
+        setIsLoading(false)
+        setIsSubmitted(true)
+        toast.success('Merci ! Vous êtes inscrit(e) à la newsletter TONOMI.', {
+          description: 'Votre code de -10% arrive bientôt !',
+        })
+        setEmail('')
+      } else {
+        const data = await res.json()
+        setIsLoading(false)
+        if (res.status === 409) {
+          toast.error('Cet email est déjà inscrit à la newsletter.')
+        } else {
+          toast.error(data.error || 'Erreur lors de l\'inscription')
+        }
+      }
+    } catch {
+      setIsLoading(false)
+      toast.error('Erreur de connexion. Veuillez réessayer.')
+    }
   }
 
   return (

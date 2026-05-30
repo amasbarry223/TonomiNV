@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag, PackageSearch } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import ProductCard from './ProductCard'
-import { type Product } from '@/data/products'
+import type { Product } from '@/data/products'
 import { useFilterStore } from '@/stores/filter-store'
 
 interface ProductGridProps {

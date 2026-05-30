@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star,
@@ -14,6 +14,7 @@ import {
   Truck,
   RefreshCcw,
   Shield,
+  AlertCircle,
 } from 'lucide-react'
 import {
   Accordion,
@@ -22,8 +23,9 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Progress } from '@/components/ui/progress'
-import { getProductById, getProductsByCategory, type Product } from '@/data/products'
-import { categories } from '@/data/categories'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { Product } from '@/data/products'
+import type { Category } from '@/data/categories'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { useNavStore } from '@/stores/nav-store'
@@ -109,7 +111,74 @@ const mockReviews = [
 
 export default function ProductPage() {
   const { selectedProductId, goHome, goCatalogue } = useNavStore()
-  const product = getProductById(selectedProductId ?? '')
+  const [product, setProduct] = useState<Product | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!selectedProductId) {
+      setLoading(false)
+      return
+    }
+    async function fetchProduct() {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch(`/api/products/${selectedProductId}`)
+        if (!res.ok) {
+          if (res.status === 404) {
+            setProduct(null)
+          } else {
+            throw new Error('Failed to fetch product')
+          }
+        } else {
+          const data = await res.json()
+          setProduct(data as Product)
+        }
+      } catch {
+        setError('Impossible de charger le produit')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProduct()
+  }, [selectedProductId])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-24 pb-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+            <Skeleton className="aspect-[3/4] rounded-2xl" />
+            <div className="space-y-4">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen pt-24 pb-16 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-10 h-10 text-caramel/50 mx-auto mb-3" />
+          <p className="font-[family-name:var(--font-dm-sans)] text-text-mid mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-gold px-6 py-2.5 text-sm"
+          >
+            Réessayer
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (!product) {
     return (
@@ -141,24 +210,52 @@ function ProductDetail({ product }: { product: Product }) {
   const { isInWishlist, toggleItem } = useWishlistStore()
 
   const [selectedImage, setSelectedImage] = useState(0)
-  const [selectedColor, setSelectedColor] = useState(product.colors[0])
-  const [selectedSize, setSelectedSize] = useState(product.sizes[0])
+  const [selectedColor, setSelectedColor] = useState(product.colors[0] || '')
+  const [selectedSize, setSelectedSize] = useState(product.sizes[0] || '')
   const [quantity, setQuantity] = useState(1)
   const [addingToCart, setAddingToCart] = useState(false)
   const [isZooming, setIsZooming] = useState(false)
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 })
   const imageRef = useRef<HTMLDivElement>(null)
 
+  // Fetch categories and similar products from API
+  const [categories, setCategories] = useState<Category[]>([])
+  const [similarProducts, setSimilarProducts] = useState<Product[]>([])
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/categories')
+        if (res.ok) {
+          const data = await res.json()
+          setCategories(data as Category[])
+        }
+      } catch {
+        // silently fail for categories
+      }
+    }
+    fetchCategories()
+  }, [])
+
+  useEffect(() => {
+    async function fetchSimilar() {
+      try {
+        const res = await fetch(`/api/products?category=${product.category}&limit=20`)
+        if (res.ok) {
+          const data = await res.json()
+          const filtered = (data.products as Product[]).filter((p) => p.id !== product.id).slice(0, 6)
+          setSimilarProducts(filtered)
+        }
+      } catch {
+        // silently fail for similar products
+      }
+    }
+    fetchSimilar()
+  }, [product.category, product.id])
+
   const inWishlist = isInWishlist(product.id)
   const isOutOfStock = product.stock === 0
   const categoryName = categories.find((c) => c.slug === product.category)?.name ?? product.category
-
-  // Similar products
-  const similarProducts = useMemo(() => {
-    return getProductsByCategory(product.category)
-      .filter((p) => p.id !== product.id)
-      .slice(0, 6)
-  }, [product.category, product.id])
 
   // Review stats
   const reviewStats = useMemo(() => {
@@ -184,7 +281,7 @@ function ProductDetail({ product }: { product: Product }) {
         quantity: 1,
         color: selectedColor,
         size: selectedSize,
-        image: product.images[selectedImage],
+        image: product.images[selectedImage] || product.images[0],
       })
     }
     setTimeout(() => setAddingToCart(false), 800)

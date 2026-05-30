@@ -1,14 +1,59 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { categories } from '@/data/categories'
+import { AlertCircle } from 'lucide-react'
+import type { Category } from '@/data/categories'
 import { useNavStore } from '@/stores/nav-store'
+import { Skeleton } from '@/components/ui/skeleton'
+
+function CategorySkeleton() {
+  return (
+    <div className="relative rounded-2xl aspect-[4/5] overflow-hidden">
+      <Skeleton className="w-full h-full rounded-2xl" />
+    </div>
+  )
+}
 
 export default function CategoriesSection() {
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { goCatalog } = useNavStore()
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch('/api/categories')
+        if (!res.ok) throw new Error('Failed to fetch categories')
+        const data = await res.json()
+        setCategories(data as Category[])
+      } catch {
+        setError('Impossible de charger les catégories')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCategories()
+  }, [])
 
   const handleCategoryClick = (slug: string) => {
     goCatalog(slug)
+  }
+
+  const handleRetry = () => {
+    setLoading(true)
+    setError(null)
+    fetch('/api/categories')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed')
+        return res.json()
+      })
+      .then((data) => setCategories(data as Category[]))
+      .catch(() => setError('Impossible de charger les catégories'))
+      .finally(() => setLoading(false))
   }
 
   return (
@@ -34,65 +79,84 @@ export default function CategoriesSection() {
         </motion.div>
 
         {/* Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
-          {categories.map((category, index) => (
-            <motion.div
-              key={category.id}
-              className="relative group cursor-pointer overflow-hidden rounded-2xl aspect-[4/5]"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-30px' }}
-              transition={{ duration: 0.5, delay: index * 0.08 }}
-              onClick={() => handleCategoryClick(category.slug)}
-              whileHover={{ scale: 1.02 }}
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CategorySkeleton key={i} />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="w-10 h-10 text-caramel/50 mb-3" />
+            <p className="font-[family-name:var(--font-dm-sans)] text-text-mid text-sm mb-4">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="btn-gold px-6 py-2.5 text-sm"
             >
-              {/* Image */}
-              <img
-                src={category.image}
-                alt={category.name}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                loading="lazy"
-              />
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+            {categories.map((category, index) => (
+              <motion.div
+                key={category.id}
+                className="relative group cursor-pointer overflow-hidden rounded-2xl aspect-[4/5]"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-30px' }}
+                transition={{ duration: 0.5, delay: index * 0.08 }}
+                onClick={() => handleCategoryClick(category.slug)}
+                whileHover={{ scale: 1.02 }}
+              >
+                {/* Image */}
+                <img
+                  src={category.image}
+                  alt={category.name}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  loading="lazy"
+                />
 
-              {/* Overlay gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-text-dark/70 via-text-dark/20 to-transparent transition-all duration-500 group-hover:from-gold/70 group-hover:via-gold/20 group-hover:to-transparent" />
+                {/* Overlay gradient */}
+                <div className="absolute inset-0 bg-gradient-to-t from-text-dark/70 via-text-dark/20 to-transparent transition-all duration-500 group-hover:from-gold/70 group-hover:via-gold/20 group-hover:to-transparent" />
 
-              {/* Content */}
-              <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6">
-                <motion.div
-                  className="transform transition-transform duration-500 group-hover:-translate-y-2"
-                >
-                  <h3 className="font-[family-name:var(--font-cormorant)] text-xl sm:text-2xl font-semibold text-white">
-                    {category.name}
-                  </h3>
-                  <div className="overflow-hidden">
-                    <motion.p
-                      className="font-[family-name:var(--font-dm-sans)] text-xs sm:text-sm text-white/80 mt-1 max-w-[200px]"
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                    >
-                      {category.productCount} produits
-                    </motion.p>
-                  </div>
-                </motion.div>
-              </div>
+                {/* Content */}
+                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6">
+                  <motion.div
+                    className="transform transition-transform duration-500 group-hover:-translate-y-2"
+                  >
+                    <h3 className="font-[family-name:var(--font-cormorant)] text-xl sm:text-2xl font-semibold text-white">
+                      {category.name}
+                    </h3>
+                    <div className="overflow-hidden">
+                      <motion.p
+                        className="font-[family-name:var(--font-dm-sans)] text-xs sm:text-sm text-white/80 mt-1 max-w-[200px]"
+                        initial={{ opacity: 0, y: 10 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                      >
+                        {category.productCount} produits
+                      </motion.p>
+                    </div>
+                  </motion.div>
+                </div>
 
-              {/* Hover arrow indicator */}
-              <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <svg
-                  className="w-4 h-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                {/* Hover arrow indicator */}
+                <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <svg
+                    className="w-4 h-4 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

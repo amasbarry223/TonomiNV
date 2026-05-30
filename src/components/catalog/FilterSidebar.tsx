@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useFilterStore, AVAILABLE_COLORS, AVAILABLE_SIZES } from '@/stores/filter-store'
-import { categories } from '@/data/categories'
+import type { Category } from '@/data/categories'
 
 const formatPrice = (price: number) => price.toLocaleString('fr-FR') + ' FCFA'
 
@@ -25,7 +25,11 @@ const colorSwatchMap: Record<string, string> = {
   multicolore: 'linear-gradient(135deg, #D4AF6A, #E8C547, #C8956C, #B87333)',
 }
 
-export default function FilterSidebar() {
+interface FilterSidebarProps {
+  categories?: Category[]
+}
+
+export default function FilterSidebar({ categories = [] }: FilterSidebarProps) {
   const {
     category,
     priceRange,

@@ -16,17 +16,17 @@ interface CartStore {
   items: CartItem[];
   isOpen: boolean;
   coupon: string | null;
-  couponDiscount: number;
+  couponDiscount: number; // FCFA discount amount (not percentage)
   addItem: (item: CartItem) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
-  applyCoupon: (code: string, discount: number) => void;
+  applyCoupon: (code: string, discountAmount: number) => void;
   removeCoupon: () => void;
   clearCart: () => void;
   toggleCart: () => void;
   setCartOpen: (open: boolean) => void;
   getSubtotal: () => number;
-  getTotal: () => number;
+  getTotal: () => number; // subtotal - couponDiscount (no shipping)
   getItemCount: () => number;
 }
 
@@ -81,8 +81,8 @@ export const useCartStore = create<CartStore>()(
         }));
       },
 
-      applyCoupon: (code, discount) => {
-        set({ coupon: code, couponDiscount: discount });
+      applyCoupon: (code, discountAmount) => {
+        set({ coupon: code, couponDiscount: discountAmount });
       },
 
       removeCoupon: () => {

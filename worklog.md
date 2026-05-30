@@ -524,3 +524,88 @@ Stage Summary:
 - Responsive layout with collapsible sidebar
 - Toast notifications for all operations
 - Database-backed with Prisma ORM and SQLite
+
+---
+Task ID: p0-2+p0-3+p0-4
+Agent: Main
+Task: Wire up 3 critical data flows (Newsletter, Contact, Cart Checkout)
+
+Work Log:
+1. **Newsletter Form → POST /api/newsletter**
+   - File: `/home/z/my-project/src/components/home/NewsletterSection.tsx`
+   - Replaced `setTimeout` simulation with real `fetch('/api/newsletter', POST)` call
+   - Added error handling: 409 (already subscribed), network errors, generic errors
+   - Maintains same UI/UX with loading spinner and success state
+
+2. **Contact Form → POST /api/contacts**
+   - File: `/home/z/my-project/src/components/contact/ContactPage.tsx`
+   - Replaced `setTimeout` simulation with real `fetch('/api/contacts', POST)` call
+   - Sends name, email, subject, message to the API
+   - Added try/catch with toast error messages for failures and network errors
+   - Maintains same form reset behavior on success
+
+3. **Cart Checkout → POST /api/orders + Promo Validation API**
+   - Created `/home/z/my-project/src/app/api/promos/validate/route.ts`:
+     - GET endpoint accepting `code` and `total` query params
+     - Validates: code exists, is active, meets min purchase, not expired
+     - Returns discount amount (FCFA) for both percentage and fixed promo types
+   - Updated `/home/z/my-project/src/stores/cart-store.ts`:
+     - `couponDiscount` now stores FCFA amount (not percentage)
+     - Updated JSDoc comments on interface for clarity
+     - `applyCoupon(code, discountAmount)` parameter renamed for clarity
+   - Rewrote `/home/z/my-project/src/components/layout/CartDrawer.tsx`:
+     - Replaced hardcoded coupon codes ('TONOMI10', 'BIENVENUE') with real API validation
+     - Fixed `isWishlisted` → `isInWishlist` (correct method name from WishlistStore)
+     - Replaced placeholder suggested products with real products fetched from `/api/products?limit=4`
+     - Product images now render real images from the database
+     - Added coupon remove button (Retirer)
+     - Added Enter key support on coupon input
+     - Added loading state for coupon validation (Loader2 spinner)
+     - Added checkout dialog with:
+       - Customer name, email, phone (required fields)
+       - Notes (optional)
+       - Order summary with items, subtotal, discount, total
+       - "Confirmer la commande" gold gradient button
+       - Success state with CheckCircle animation
+       - Loading state with spinner during order creation
+       - POST /api/orders on confirm with full order data
+       - Cart cleared on success
+       - TONOMI design throughout (cream/gold/caramel)
+
+Stage Summary:
+- All 3 simulated data flows now use real API endpoints
+- Newsletter and Contact forms persist to database
+- Promo codes validated server-side with proper business logic
+- Checkout creates real orders in database
+- Cart store properly handles FCFA discount amounts
+- Fixed isWishlisted → isInWishlist bug
+- Replaced placeholder product images with real data
+- Lint passes with 0 errors
+
+---
+Task ID: p0-1
+Agent: Storefront API Integration Agent
+Task: Connect ALL storefront components to use the API instead of static data files
+
+Work Log:
+- Updated NewArrivals.tsx: Replaced `getNewProducts()` with API fetch to `/api/products?limit=100` + client-side isNew filter. Added loading skeletons + error state with retry.
+- Updated BestSellers.tsx: Replaced `getBestSellers()` with API fetch to `/api/products?limit=100` + client-side isBestSeller filter. Added loading skeletons + error state with retry.
+- Updated CategoriesSection.tsx: Replaced `categories` import with fetch to `/api/categories`. Added loading skeletons + error state with retry.
+- Updated ProductCard.tsx (home): Changed to `import type { Product }` (type-only import)
+- Updated ProductCard.tsx (catalog): Removed `products` value import, kept `import type { Product }`
+- Updated CatalogPage.tsx: Replaced all static imports with API fetches (products + categories in parallel). Wishlist view now uses allProducts.find() instead of static getProductById(). Added loading/error states.
+- Updated FilterSidebar.tsx: Replaced static `categories` import with categories prop from parent.
+- Updated FilterDrawer.tsx: Updated to accept and pass categories prop.
+- Updated ProductGrid.tsx: Changed to `import type { Product }` (consistent type-only syntax)
+- Updated ProductPage.tsx: Replaced `getProductById()` with fetch to `/api/products/[id]`. Replaced `getProductsByCategory()` with fetch to `/api/products?category=XXX`. Replaced static `categories` import with fetch to `/api/categories`. Added loading skeleton + error state.
+- Updated PromotionsPage.tsx: Replaced all static imports with API fetches (products, promos, flash-sales in parallel). Built productsMap for lookups. Countdown now uses actual flash sale end dates. Active filtering for promos (isActive + validUntil) and flash sales (isActive + stockLeft + endsAt). Added loading skeletons for all 3 sections + error state.
+- Lint passes with 0 errors
+- All API endpoints verified returning 200 in dev log
+
+Stage Summary:
+- All storefront components now fetch from API instead of static files
+- Admin changes reflected on storefront in real-time (page refresh)
+- Every component has loading skeleton states during fetch
+- Every component has error states with retry buttons
+- All imports from @/data/* are type-only (no value imports)
+- Same UI/UX maintained - only data source changed

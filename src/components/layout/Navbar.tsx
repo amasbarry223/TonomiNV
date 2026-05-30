@@ -8,6 +8,7 @@ import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
 import { Badge } from '@/components/ui/badge'
 import MobileMenu from './MobileMenu'
+import SearchOverlay from './SearchOverlay'
 import { useRouter } from 'next/navigation'
 
 const navLinks: { label: string; page: PageName }[] = [
@@ -21,6 +22,7 @@ const navLinks: { label: string; page: PageName }[] = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const { currentPage, navigate } = useNavStore()
   const { getItemCount, setCartOpen } = useCartStore()
   const { items: wishlistItems } = useWishlistStore()
@@ -40,6 +42,7 @@ export default function Navbar() {
   const handleNavClick = (page: PageName) => {
     navigate(page)
     setMobileMenuOpen(false)
+    setSearchOpen(false)
   }
 
   const handleWishlistClick = () => {
@@ -105,6 +108,7 @@ export default function Navbar() {
                   className="relative p-2 rounded-full text-text-mid hover:text-gold hover:bg-beige/50 transition-colors"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
+                  onClick={() => setSearchOpen(true)}
                   aria-label="Rechercher"
                 >
                   <Search className="w-5 h-5" />
@@ -168,6 +172,9 @@ export default function Navbar() {
           </div>
         </div>
       </motion.header>
+
+      {/* Search Overlay */}
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* Mobile Menu */}
       <AnimatePresence>

@@ -28,6 +28,7 @@ model Product {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   orderItems    OrderItem[]
+  reviews       Review[]
 }
 
 model Category {
@@ -117,4 +118,14 @@ model SiteSetting {
   id    String @id @default(cuid())
   key   String @unique
   value String
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userName  String
+  rating    Int      // 1-5
+  comment   String
+  createdAt DateTime @default(now())
 }

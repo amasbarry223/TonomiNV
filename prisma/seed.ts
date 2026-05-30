@@ -8,6 +8,7 @@ async function main() {
   await db.order.deleteMany();
   await db.flashSale.deleteMany();
   await db.promoCode.deleteMany();
+  await db.review.deleteMany();
   await db.contactMessage.deleteMany();
   await db.newsletterSubscriber.deleteMany();
   await db.siteSetting.deleteMany();
@@ -521,6 +522,50 @@ async function main() {
     await db.siteSetting.create({ data: setting });
   }
 
+  // ===== Reviews =====
+  console.log('⭐ Creating reviews...');
+  const reviewsData = [
+    { productId: 'prod-001', userName: 'Aminata D.', rating: 5, comment: 'Qualité exceptionnelle ! Le produit correspond parfaitement à la description. Je recommande vivement TONOMI.' },
+    { productId: 'prod-001', userName: 'Fatoumata S.', rating: 4, comment: "Très beau collier, finitions soignées. La livraison était rapide. Un petit bémol sur l'emballage." },
+    { productId: 'prod-001', userName: 'Mariam T.', rating: 5, comment: "Magnifique ! L'artisanat malien à son meilleur. J'ai reçu beaucoup de compliments. Merci TONOMI !" },
+    { productId: 'prod-005', userName: 'Oumou B.', rating: 5, comment: "Le collier Djenné est une œuvre d'art. Les perles dorées sont magnifiques et les pierres naturelles ajoutent une touche unique." },
+    { productId: 'prod-005', userName: 'Aïssata K.', rating: 4, comment: 'Très beau collier multi-rangs, parfait pour les grandes occasions. Le seul défaut est la fermeture un peu délicate.' },
+    { productId: 'prod-008', userName: 'Kadiatou Ba', rating: 5, comment: "Le Sac Bamako est incroyable ! Le cuir est de très bonne qualité et les motifs gravés sont magnifiques. Compartiments pratiques." },
+    { productId: 'prod-008', userName: 'Djénéba D.', rating: 5, comment: "Mon sac préféré ! La doublure en wax est une belle surprise. Il est spacieux et élégant à la fois." },
+    { productId: 'prod-008', userName: 'Rokia C.', rating: 4, comment: "Très beau sac en cuir véritable. La qualité est au rendez-vous. Je recommande !" },
+    { productId: 'prod-013', userName: 'Sitan T.', rating: 5, comment: "Le foulard en soie avec impressions bogolan est d'une beauté rare. Chaque pièce est vraiment unique comme promis." },
+    { productId: 'prod-013', userName: 'Awa D.', rating: 4, comment: "Foulard magnifique et doux. Les couleurs bogolan sont authentiques. Parfait pour toutes les saisons." },
+    { productId: 'prod-018', userName: 'Amadou K.', rating: 5, comment: "Lunettes de soleil stylées avec une protection UV excellente. Le style cat-eye est très élégant." },
+    { productId: 'prod-018', userName: 'Moussa C.', rating: 4, comment: "Bonnes lunettes, verres polarisés efficaces. La monture acétate est légère et confortable." },
+    { productId: 'prod-035', userName: 'Aminata D.', rating: 5, comment: "La Montre Féminine Bamako est magnifique ! Le boîtier doré et le bracelet maille milanaise sont d'une élégance rare." },
+    { productId: 'prod-035', userName: 'Fatoumata S.', rating: 5, comment: "Qualité exceptionnelle pour le prix. Le cadran nacré est sublime. Ma montre préférée !" },
+    { productId: 'prod-032', userName: 'Mariam T.', rating: 5, comment: "Le Diadème Reine du Sahel est parfait pour les mariages et grandes occasions. Les ornements floraux sont délicats." },
+    { productId: 'prod-003', userName: 'Oumou B.', rating: 4, comment: "Boucles d'oreilles légères et élégantes. Les pierres semi-précieuses sont jolies. Bon rapport qualité-prix." },
+    { productId: 'prod-017', userName: 'Aïssata K.', rating: 5, comment: "Foulard en soie pure d'une qualité exceptionnelle. Les bordures tissées à la main font toute la différence." },
+    { productId: 'prod-020', userName: 'Kadiatou Ba', rating: 5, comment: "Lunettes oversize très tendance ! Les verres miroir sont super et la protection UV est au top." },
+    { productId: 'prod-024', userName: 'Rokia C.', rating: 4, comment: "Ceinture fine et élégante. Le tressage est délicat et la boucle en laiton est magnifique." },
+    { productId: 'prod-022', userName: 'Djénéba D.', rating: 5, comment: "Montre Dakar est une pièce magnifique ! Le boîtier doré et le bracelet cuir sont de très bonne qualité." },
+  ];
+
+  for (const review of reviewsData) {
+    await db.review.create({ data: review });
+  }
+
+  // Update product ratings based on reviews
+  console.log('📊 Updating product ratings...');
+  const productIds = [...new Set(reviewsData.map(r => r.productId))];
+  for (const pid of productIds) {
+    const productReviews = await db.review.findMany({ where: { productId: pid } });
+    const avgRating = productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length;
+    await db.product.update({
+      where: { id: pid },
+      data: {
+        rating: Math.round(avgRating * 10) / 10,
+        reviewCount: productReviews.length,
+      },
+    });
+  }
+
   console.log('✅ Seed completed successfully!');
   console.log(`  - ${categoriesData.length} categories`);
   console.log(`  - ${productsData.length} products`);
@@ -530,6 +575,7 @@ async function main() {
   console.log(`  - ${contactsData.length} contact messages`);
   console.log(`  - ${subscribersData.length} newsletter subscribers`);
   console.log(`  - ${settingsData.length} site settings`);
+  console.log(`  - ${reviewsData.length} reviews`);
 }
 
 main()
