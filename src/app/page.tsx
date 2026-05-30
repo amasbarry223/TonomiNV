@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from 'framer-motion'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
@@ -15,9 +16,11 @@ import BestSellers from '@/components/home/BestSellers'
 import BrandStory from '@/components/home/BrandStory'
 import CategoriesSection from '@/components/home/CategoriesSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
-import PresenceSection from '@/components/home/PresenceSection'
 import InstagramFeed from '@/components/home/InstagramFeed'
 import NewsletterSection from '@/components/home/NewsletterSection'
+
+// Dynamic import for map component (SSR incompatible due to d3)
+const PresenceSection = dynamic(() => import('@/components/home/PresenceSection'), { ssr: false })
 
 // Page components
 import PromotionsPage from '@/components/promotions/PromotionsPage'

@@ -9,7 +9,6 @@ import { useWishlistStore } from '@/stores/wishlist-store'
 import { Badge } from '@/components/ui/badge'
 import MobileMenu from './MobileMenu'
 import SearchOverlay from './SearchOverlay'
-import { useRouter } from 'next/navigation'
 
 const navLinks: { label: string; page: PageName }[] = [
   { label: 'Accueil', page: 'home' },
@@ -23,10 +22,9 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const { currentPage, navigate } = useNavStore()
+  const { currentPage, navigate, goAdmin } = useNavStore()
   const { getItemCount, setCartOpen } = useCartStore()
   const { items: wishlistItems } = useWishlistStore()
-  const router = useRouter()
 
   const cartCount = getItemCount()
   const wishlistCount = wishlistItems.length
@@ -148,7 +146,7 @@ export default function Navbar() {
 
                 {/* Admin */}
                 <motion.button
-                  onClick={() => router.push('/admin')}
+                  onClick={() => goAdmin()}
                   className="relative p-2 rounded-full text-text-mid hover:text-caramel hover:bg-beige/50 transition-colors"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}

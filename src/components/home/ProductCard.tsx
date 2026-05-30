@@ -14,6 +14,38 @@ interface ProductCardProps {
   index?: number
 }
 
+const colorSwatchMap: Record<string, string> = {
+  noir: '#1a1a1a',
+  blanc: '#FFFFFF',
+  or: '#D4AF6A',
+  argent: '#C0C0C0',
+  marron: '#8B4513',
+  terracotta: '#CC5500',
+  bordeaux: '#722F37',
+  bleu: '#2563EB',
+  'bleu marine': '#1E3A5F',
+  vert: '#16A34A',
+  rose: '#F472B6',
+  'rose gold': '#B76E79',
+  roserose: '#B76E79',
+  jaune: '#EAB308',
+  orange: '#F97316',
+  multicolore: '#D4AF6A',
+  doré: '#D4AF6A',
+  cognac: '#834333',
+  sable: '#C2B280',
+  naturel: '#E8D5B7',
+  indigo: '#4B0082',
+  kaki: '#8B7355',
+  écaille: '#6B3A2A',
+  tortue: '#8B6914',
+  'noir et blanc': '#1a1a1a',
+  émeraude: '#046307',
+  violet: '#7C3AED',
+  transparent: '#F5F5F5',
+  ivoire: '#FFFFF0',
+}
+
 export default function ProductCard({ product, onQuickView, index = 0 }: ProductCardProps) {
   const [isTilting, setIsTilting] = useState(false)
   const [tiltStyle, setTiltStyle] = useState({ rotateX: 0, rotateY: 0 })
@@ -209,7 +241,7 @@ export default function ProductCard({ product, onQuickView, index = 0 }: Product
               <span
                 key={color}
                 className="w-3.5 h-3.5 rounded-full border border-gold/30"
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: colorSwatchMap[color] || '#999' }}
                 title={color}
               />
             ))}

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@config "../../tailwind.config.ts";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -379,6 +380,15 @@ html {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #C8956C;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Back to top */
