@@ -15,6 +15,7 @@ import BestSellers from '@/components/home/BestSellers'
 import BrandStory from '@/components/home/BrandStory'
 import CategoriesSection from '@/components/home/CategoriesSection'
 import TestimonialsSection from '@/components/home/TestimonialsSection'
+import PresenceSection from '@/components/home/PresenceSection'
 import InstagramFeed from '@/components/home/InstagramFeed'
 import NewsletterSection from '@/components/home/NewsletterSection'
 
@@ -48,6 +49,7 @@ function HomePage() {
       <NewArrivals />
       <BestSellers />
       <BrandStory />
+      <PresenceSection />
       <TestimonialsSection />
       <InstagramFeed />
       <NewsletterSection />

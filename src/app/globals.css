@@ -366,6 +366,21 @@ html {
   animation: float 3s ease-in-out infinite;
 }
 
+/* Custom Scrollbar for Country List */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #D4AF6A;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #C8956C;
+}
+
 /* Back to top */
 .back-to-top {
   position: fixed;
