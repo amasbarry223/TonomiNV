@@ -406,21 +406,17 @@ export default function CheckoutPage() {
                         <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5 font-[family-name:var(--font-dm-sans)]">
                           Ville *
                         </label>
-                        {form.country === 'Mali' ? (
-                          <select
-                            value={form.city}
-                            onChange={(e) => setField('city', e.target.value)}
-                            className="w-full bg-stone-50 border border-[#D4AF6A]/20 text-[#1a1a1a] rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-                          >
-                            {MALI_CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        ) : (
-                          <input
-                            value={form.city}
-                            onChange={(e) => setField('city', e.target.value)}
-                            placeholder="Votre ville"
-                            className="w-full bg-stone-50 border border-[#D4AF6A]/20 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-                          />
+                        <input
+                          list={form.country === 'Mali' ? 'mali-cities-list' : undefined}
+                          value={form.city}
+                          onChange={(e) => setField('city', e.target.value)}
+                          placeholder={form.country === 'Mali' ? 'Ex : Bamako, Ségou…' : 'Votre ville'}
+                          className="w-full bg-stone-50 border border-[#D4AF6A]/20 text-[#1a1a1a] rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
+                        />
+                        {form.country === 'Mali' && (
+                          <datalist id="mali-cities-list">
+                            {MALI_CITIES.map((c) => <option key={c} value={c} />)}
+                          </datalist>
                         )}
                       </div>
                       <div>

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Package, MapPin, LogOut, Eye, EyeOff,
   Plus, Trash2, CheckCircle, ShoppingBag,
+  Mail, Lock, Phone, Sparkles, ArrowRight,
 } from 'lucide-react';
 import {
   useCustomerStore,
@@ -18,8 +19,39 @@ import { formatPrice } from '@/lib/product-display';
 
 type AccountTab = 'orders' | 'addresses' | 'profile';
 
-// ── Auth forms ────────────────────────────────────────────────────────────────
+// ── Shared field component ────────────────────────────────────────────────────
+function AuthField({
+  label, type = 'text', value, onChange, placeholder, icon: Icon, required = true,
+  rightEl,
+}: {
+  label: string; type?: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; icon: React.ElementType; required?: boolean;
+  rightEl?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-text-mid uppercase tracking-wider mb-2 font-[family-name:var(--font-dm-sans)]">
+        {label}
+      </label>
+      <div className="relative">
+        <Icon size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gold/60 pointer-events-none" />
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          placeholder={placeholder}
+          className="w-full bg-cream/60 border border-gold/20 rounded-xl pl-10 pr-10 py-3 text-sm text-text-dark focus:outline-none focus:ring-2 focus:ring-gold/25 focus:border-gold transition-colors font-[family-name:var(--font-dm-sans)] placeholder:text-text-mid/40"
+        />
+        {rightEl && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">{rightEl}</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
+// ── Auth forms ────────────────────────────────────────────────────────────────
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const { login } = useCustomerStore();
   const [email, setEmail] = useState('');
@@ -39,57 +71,30 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   };
 
   return (
-    <form onSubmit={handle} className="space-y-4 max-w-sm mx-auto">
-      <div>
-        <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5 font-[family-name:var(--font-dm-sans)]">
-          Email
-        </label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="votre@email.com"
-          className="w-full bg-stone-50 border border-[#D4AF6A]/20 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5 font-[family-name:var(--font-dm-sans)]">
-          Mot de passe
-        </label>
-        <div className="relative">
-          <input
-            type={showPwd ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="••••••••"
-            className="w-full bg-stone-50 border border-[#D4AF6A]/20 rounded-xl px-3 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPwd(!showPwd)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-          >
-            {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+    <form onSubmit={handle} className="space-y-4">
+      <AuthField label="Email" type="email" value={email} onChange={setEmail}
+        placeholder="votre@email.com" icon={Mail} />
+      <AuthField label="Mot de passe" type={showPwd ? 'text' : 'password'}
+        value={password} onChange={setPassword} placeholder="••••••••" icon={Lock}
+        rightEl={
+          <button type="button" onClick={() => setShowPwd(!showPwd)}
+            className="text-text-mid/50 hover:text-gold transition-colors">
+            {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
-        </div>
-      </div>
+        }
+      />
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 font-[family-name:var(--font-dm-sans)]">
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 font-[family-name:var(--font-dm-sans)]">
           {error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full btn-gold py-3 text-sm font-semibold rounded-xl border-0 disabled:opacity-60 font-[family-name:var(--font-dm-sans)]"
-      >
-        {loading ? 'Connexion...' : 'Se connecter'}
+      <button type="submit" disabled={loading}
+        className="w-full btn-gold py-3 text-sm font-semibold rounded-xl border-0 disabled:opacity-60 flex items-center justify-center gap-2 font-[family-name:var(--font-dm-sans)]">
+        {loading ? 'Connexion...' : <><span>Se connecter</span><ArrowRight size={15} /></>}
       </button>
-      <p className="text-center text-sm text-stone-500 font-[family-name:var(--font-dm-sans)]">
+      <p className="text-center text-xs text-text-mid font-[family-name:var(--font-dm-sans)]">
         Pas encore de compte ?{' '}
-        <button type="button" onClick={onSwitch} className="text-[#D4AF6A] font-semibold hover:underline">
+        <button type="button" onClick={onSwitch} className="text-gold font-semibold hover:underline">
           Créer un compte
         </button>
       </p>
@@ -103,14 +108,13 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
   const setField = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const handle = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (form.password !== form.confirm) { setError('Les mots de passe ne correspondent pas.'); return; }
-    if (form.password.length < 6) { setError('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+    if (form.password.length < 6) { setError('Minimum 6 caractères pour le mot de passe.'); return; }
     setLoading(true);
     await new Promise((r) => setTimeout(r, 400));
     const result = register(form);
@@ -119,77 +123,41 @@ function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
   };
 
   return (
-    <form onSubmit={handle} className="space-y-4 max-w-sm mx-auto">
+    <form onSubmit={handle} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        {[{ k: 'firstName', label: 'Prénom', ph: 'Aminata' }, { k: 'lastName', label: 'Nom', ph: 'Diallo' }].map(({ k, label, ph }) => (
-          <div key={k}>
-            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5 font-[family-name:var(--font-dm-sans)]">{label}</label>
-            <input
-              required
-              value={form[k as keyof typeof form]}
-              onChange={(e) => setField(k as keyof typeof form, e.target.value)}
-              placeholder={ph}
-              className="w-full bg-stone-50 border border-[#D4AF6A]/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-            />
-          </div>
-        ))}
+        <AuthField label="Prénom" value={form.firstName} onChange={(v) => setField('firstName', v)}
+          placeholder="Aminata" icon={User} />
+        <AuthField label="Nom" value={form.lastName} onChange={(v) => setField('lastName', v)}
+          placeholder="Diallo" icon={User} />
       </div>
-      {[
-        { k: 'email', label: 'Email', type: 'email', ph: 'votre@email.com' },
-        { k: 'phone', label: 'Téléphone', type: 'tel', ph: '+223 76 XX XX XX' },
-      ].map(({ k, label, type, ph }) => (
-        <div key={k}>
-          <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5 font-[family-name:var(--font-dm-sans)]">{label}</label>
-          <input
-            required
-            type={type}
-            value={form[k as keyof typeof form]}
-            onChange={(e) => setField(k as keyof typeof form, e.target.value)}
-            placeholder={ph}
-            className="w-full bg-stone-50 border border-[#D4AF6A]/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-          />
-        </div>
-      ))}
-      <div className="relative">
-        <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5 font-[family-name:var(--font-dm-sans)]">Mot de passe</label>
-        <input
-          required
-          type={showPwd ? 'text' : 'password'}
-          value={form.password}
-          onChange={(e) => setField('password', e.target.value)}
-          placeholder="Minimum 6 caractères"
-          className="w-full bg-stone-50 border border-[#D4AF6A]/20 rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-        />
-        <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-[34px] text-stone-400 hover:text-stone-600">
-          {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
-        </button>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5 font-[family-name:var(--font-dm-sans)]">Confirmer le mot de passe</label>
-        <input
-          required
-          type="password"
-          value={form.confirm}
-          onChange={(e) => setField('confirm', e.target.value)}
-          placeholder="••••••••"
-          className="w-full bg-stone-50 border border-[#D4AF6A]/20 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF6A]/30 focus:border-[#D4AF6A] font-[family-name:var(--font-dm-sans)]"
-        />
-      </div>
+      <AuthField label="Email" type="email" value={form.email} onChange={(v) => setField('email', v)}
+        placeholder="votre@email.com" icon={Mail} />
+      <AuthField label="Téléphone" type="tel" value={form.phone} onChange={(v) => setField('phone', v)}
+        placeholder="+223 76 XX XX XX" icon={Phone} required={false} />
+      <AuthField label="Mot de passe" type={showPwd ? 'text' : 'password'}
+        value={form.password} onChange={(v) => setField('password', v)}
+        placeholder="Minimum 6 caractères" icon={Lock}
+        rightEl={
+          <button type="button" onClick={() => setShowPwd(!showPwd)}
+            className="text-text-mid/50 hover:text-gold transition-colors">
+            {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        }
+      />
+      <AuthField label="Confirmer" type="password" value={form.confirm}
+        onChange={(v) => setField('confirm', v)} placeholder="••••••••" icon={Lock} />
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 font-[family-name:var(--font-dm-sans)]">
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 font-[family-name:var(--font-dm-sans)]">
           {error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full btn-gold py-3 text-sm font-semibold rounded-xl border-0 disabled:opacity-60 font-[family-name:var(--font-dm-sans)]"
-      >
-        {loading ? 'Création...' : 'Créer mon compte'}
+      <button type="submit" disabled={loading}
+        className="w-full btn-gold py-3 text-sm font-semibold rounded-xl border-0 disabled:opacity-60 flex items-center justify-center gap-2 font-[family-name:var(--font-dm-sans)]">
+        {loading ? 'Création...' : <><span>Créer mon compte</span><ArrowRight size={15} /></>}
       </button>
-      <p className="text-center text-sm text-stone-500 font-[family-name:var(--font-dm-sans)]">
+      <p className="text-center text-xs text-text-mid font-[family-name:var(--font-dm-sans)]">
         Déjà un compte ?{' '}
-        <button type="button" onClick={onSwitch} className="text-[#D4AF6A] font-semibold hover:underline">
+        <button type="button" onClick={onSwitch} className="text-gold font-semibold hover:underline">
           Se connecter
         </button>
       </p>
@@ -496,54 +464,104 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-screen bg-cream pt-24 pb-16">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
-        <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1a1a1a] mb-8">
-          {current ? `Bonjour, ${current.firstName} !` : 'Mon compte'}
-        </h1>
+      <div className={`mx-auto px-4 sm:px-6 ${current ? 'max-w-3xl' : 'max-w-2xl'}`}>
+        {current && (
+          <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-[#1a1a1a] mb-8">
+            Bonjour, {current.firstName} !
+          </h1>
+        )}
 
         {!current ? (
-          /* Auth section */
-          <div className="bg-white rounded-2xl border border-[#D4AF6A]/20 p-8 shadow-sm">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-[#D4AF6A]/10 flex items-center justify-center">
-                <User size={28} className="text-[#D4AF6A]" />
+          /* Auth section — split layout */
+          <div className="overflow-hidden rounded-3xl shadow-2xl shadow-gold/10 border border-gold/15 flex flex-col md:flex-row min-h-[520px]">
+
+            {/* Left panel — brand */}
+            <div className="hidden md:flex md:w-2/5 bg-gradient-to-b from-[#0f0800] to-[#1a0f02] flex-col justify-between p-8 relative overflow-hidden">
+              {/* Decorative circles */}
+              <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-gold/5" />
+              <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-gold/8" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-gold/3" />
+
+              {/* Logo area */}
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles size={16} className="text-gold" />
+                  <span className="font-[family-name:var(--font-dm-sans)] text-[10px] text-gold/70 uppercase tracking-[0.25em]">
+                    Espace client
+                  </span>
+                </div>
+                <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white leading-tight">
+                  Bienvenue<br />chez <span className="text-gold">TONOMI</span>
+                </h2>
+                <p className="font-[family-name:var(--font-cormorant)] text-base text-white/50 italic mt-2">
+                  L&apos;élégance africaine, réinventée.
+                </p>
+              </div>
+
+              {/* Value props */}
+              <div className="relative z-10 space-y-3">
+                {[
+                  'Suivez vos commandes en temps réel',
+                  'Sauvegardez vos adresses de livraison',
+                  'Accédez à vos offres personnalisées',
+                ].map((text) => (
+                  <div key={text} className="flex items-start gap-2.5">
+                    <div className="w-4 h-4 rounded-full bg-gold/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-gold" />
+                    </div>
+                    <span className="font-[family-name:var(--font-dm-sans)] text-xs text-white/55 leading-relaxed">
+                      {text}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom quote */}
+              <div className="relative z-10 border-t border-white/8 pt-5">
+                <p className="font-[family-name:var(--font-cormorant)] text-sm italic text-white/35">
+                  &ldquo;La qualité est exceptionnelle, le travail artisanal se voit à chaque détail.&rdquo;
+                </p>
+                <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-white/25 mt-1">
+                  — Aminata D., Bamako
+                </p>
               </div>
             </div>
 
-            <div className="flex bg-stone-100 rounded-xl p-1 mb-6 max-w-xs mx-auto">
-              <button
-                onClick={() => setAuthMode('login')}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all font-[family-name:var(--font-dm-sans)] ${
-                  authMode === 'login' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-stone-500'
-                }`}
-              >
-                Connexion
-              </button>
-              <button
-                onClick={() => setAuthMode('register')}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all font-[family-name:var(--font-dm-sans)] ${
-                  authMode === 'register' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-stone-500'
-                }`}
-              >
-                Inscription
-              </button>
-            </div>
+            {/* Right panel — form */}
+            <div className="flex-1 bg-white p-8 flex flex-col justify-center">
+              {/* Tab switcher */}
+              <div className="flex gap-1 bg-cream rounded-xl p-1 mb-7">
+                {(['login', 'register'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setAuthMode(mode)}
+                    className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 font-[family-name:var(--font-dm-sans)] ${
+                      authMode === mode
+                        ? 'bg-gold text-white shadow-md shadow-gold/25'
+                        : 'text-text-mid hover:text-text-dark'
+                    }`}
+                  >
+                    {mode === 'login' ? 'Connexion' : 'Inscription'}
+                  </button>
+                ))}
+              </div>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={authMode}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                {authMode === 'login' ? (
-                  <LoginForm onSwitch={() => setAuthMode('register')} />
-                ) : (
-                  <RegisterForm onSwitch={() => setAuthMode('login')} />
-                )}
-              </motion.div>
-            </AnimatePresence>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={authMode}
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.22 }}
+                >
+                  {authMode === 'login' ? (
+                    <LoginForm onSwitch={() => setAuthMode('register')} />
+                  ) : (
+                    <RegisterForm onSwitch={() => setAuthMode('login')} />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         ) : (
           /* Account section */

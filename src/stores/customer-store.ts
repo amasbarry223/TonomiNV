@@ -83,6 +83,7 @@ interface CustomerState {
   saveAddress: (address: Omit<DeliveryAddress, 'id'>) => void;
   deleteAddress: (id: string) => void;
   setDefaultAddress: (id: string) => void;
+  updateOrderStatus: (id: string, status: CustomerOrderStatus) => void;
 }
 
 function generateOrderNumber(): string {
@@ -167,6 +168,11 @@ export const useCustomerStore = create<CustomerState>()(
       setDefaultAddress: (id) =>
         set((s) => ({
           savedAddresses: s.savedAddresses.map((a) => ({ ...a, isDefault: a.id === id })),
+        })),
+
+      updateOrderStatus: (id, status) =>
+        set((s) => ({
+          orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)),
         })),
     }),
     { name: 'tonomi-customer' }

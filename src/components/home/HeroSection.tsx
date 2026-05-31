@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useNavStore } from '@/stores/nav-store'
+import { useAdminStore } from '@/stores/admin-store'
 import { getProductImagePaths } from '@/data/product-image-map'
 import { ProductImage } from '@/components/ui/product-image'
 
@@ -29,70 +30,25 @@ const textVariants = {
 
 export default function HeroSection() {
   const { goCatalog, goPromotions } = useNavStore()
+  const adminSlides = useAdminStore((s) => s.heroSlides)
   const [activeIndex, setActiveIndex] = useState(0)
   const [paused, setPaused] = useState(false)
 
   const slides = useMemo(
-    () => [
-      {
-        id: 'collection',
-        image: getProductImagePaths('prod-008', 'sacs', 1)[0],
-        badge: 'Collection 2025',
-        title: "L'élégance africaine",
-        highlight: 'réinventée',
-        description:
-          'Sacs en cuir exotique et finitions dorées, conçus au cœur du Mali.',
-        primary: { label: 'Découvrir la collection', onClick: () => goCatalog() },
-        secondary: { label: 'Nos promotions', onClick: () => goPromotions() },
-      },
-      {
-        id: 'bijoux',
-        image: getProductImagePaths('prod-005', 'bijoux', 1)[0],
-        badge: 'Bijoux',
-        title: 'Brillez avec',
-        highlight: 'audace',
-        description:
-          'Colliers, bracelets et boucles inspirés du savoir-faire mandingue.',
-        primary: {
-          label: 'Voir les bijoux',
-          onClick: () => goCatalog('bijoux'),
-        },
-      },
-      {
-        id: 'lifestyle',
-        image: getProductImagePaths('prod-013', 'foulards', 1)[0],
-        badge: 'Artisanat malien',
-        title: 'Tradition &',
-        highlight: 'modernité',
-        description:
-          'Wax, bazin et textiles nobles pour un style unique et affirmé.',
-        primary: {
-          label: 'Explorer les foulards',
-          onClick: () => goCatalog('foulards'),
-        },
-      },
-      {
-        id: 'flash',
-        image: getProductImagePaths('prod-009', 'sacs', 1)[0],
-        badge: 'Offre limitée',
-        title: 'Soldes',
-        highlight: 'exceptionnelles',
-        description: 'Jusqu’à –50 % sur une sélection de pièces iconiques TONOMI.',
-        primary: { label: 'Profiter des offres', onClick: () => goPromotions() },
-        secondary: { label: 'Tout le catalogue', onClick: () => goCatalog() },
-      },
-      {
-        id: 'cabas',
-        image: getProductImagePaths('prod-010', 'sacs', 1)[0],
-        badge: 'Best-seller',
-        title: 'Le cabas',
-        highlight: 'signature',
-        description:
-          'Volume généreux, cuir embossé et anses tressées pour le quotidien chic.',
-        primary: { label: 'Voir les sacs', onClick: () => goCatalog('sacs') },
-      },
-    ],
-    [goCatalog, goPromotions]
+    () =>
+      adminSlides
+        .filter((s) => s.active)
+        .map((s) => ({
+          id: s.id,
+          image: getProductImagePaths(s.imageKey, s.imageCategory, 1)[0],
+          badge: s.badge,
+          title: s.title,
+          highlight: s.highlight,
+          description: s.description,
+          primary: { label: s.ctaPrimary, onClick: () => goCatalog() },
+          secondary: s.ctaSecondary ? { label: s.ctaSecondary, onClick: () => goPromotions() } : undefined,
+        })),
+    [adminSlides, goCatalog, goPromotions]
   )
 
   const goTo = useCallback(
