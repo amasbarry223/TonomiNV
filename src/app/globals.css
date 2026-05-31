@@ -212,6 +212,49 @@
   box-shadow: 0 8px 25px rgba(212, 175, 106, 0.4);
 }
 
+/* Marquee continu */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  display: flex;
+  animation: marquee 40s linear infinite;
+  will-change: transform;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Aurora warm — fond animé newsletter */
+@keyframes aurora-warm {
+  0%, 100% { background-position: 0% 60%; }
+  50%       { background-position: 100% 40%; }
+}
+.aurora-warm {
+  background: linear-gradient(
+    135deg,
+    #1c1917 0%,
+    #292524 20%,
+    #3b1a08 40%,
+    #1c1917 55%,
+    #2d1b00 70%,
+    #1c1917 85%,
+    #3b2008 100%
+  );
+  background-size: 300% 300%;
+  animation: aurora-warm 12s ease infinite;
+}
+
+/* Glassmorphism dark — pour sections sombres */
+.glass-dark {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+}
+
 .btn-gold::after {
   content: '';
   position: absolute;

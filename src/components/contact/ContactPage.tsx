@@ -60,8 +60,8 @@ const contactInfos = [
   {
     icon: <Phone className="w-6 h-6 text-gold" />,
     title: 'Téléphone',
-    value: '+223 XX XX XX XX',
-    href: 'tel:+223XXXXXXXX',
+    value: '+223 75 66 68 53',
+    href: 'tel:+22375666853',
     description: 'Lun-Sam, 9h-18h',
   },
   {
@@ -429,7 +429,7 @@ export default function ContactPage() {
                 transition={{ duration: 0.4, delay: 0.4 }}
               >
                 <a
-                  href="https://wa.me/223XXXXXXXX"
+                  href="https://wa.me/22375666853"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="glass-card p-4 flex items-center gap-4 bg-green-50/60 border-green-200/40 warm-shadow hover:scale-[1.02] hover:shadow-lg transition-all cursor-pointer"

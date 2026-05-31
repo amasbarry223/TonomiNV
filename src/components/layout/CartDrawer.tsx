@@ -9,15 +9,11 @@ import {
   ShoppingBag,
   Tag,
   Loader2,
-  User,
-  Mail,
-  Phone,
-  FileText,
-  CheckCircle,
 } from 'lucide-react'
 import { useCartStore } from '@/stores/cart-store'
 import { ProductImage } from '@/components/ui/product-image'
 import { useWishlistStore } from '@/stores/wishlist-store'
+import { useNavStore } from '@/stores/nav-store'
 import {
   Sheet,
   SheetContent,
@@ -25,19 +21,10 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Label } from '@/components/ui/label'
 import { products as staticProducts } from '@/data/products'
 import { validatePromoCode, calculateDiscount } from '@/data/promos'
 import { formatPrice } from '@/lib/product-display'
@@ -72,21 +59,13 @@ export default function CartDrawer() {
     couponDiscount,
     applyCoupon,
     removeCoupon,
-    clearCart,
     getTotal,
   } = useCartStore()
 
   const { toggleItem, isInWishlist } = useWishlistStore()
+  const { goCheckout } = useNavStore()
   const [couponInput, setCouponInput] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
-  // Checkout dialog state
-  const [checkoutOpen, setCheckoutOpen] = useState(false)
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [orderNotes, setOrderNotes] = useState('')
-  const [checkoutLoading, setCheckoutLoading] = useState(false)
-  const [checkoutSuccess, setCheckoutSuccess] = useState(false)
 
   const itemCount = getItemCount()
   const subtotal = getSubtotal()
@@ -117,27 +96,8 @@ export default function CartDrawer() {
 
   const handleCheckout = () => {
     if (items.length === 0) return
-    setCheckoutOpen(true)
-    setCheckoutSuccess(false)
-    setCustomerName('')
-    setCustomerEmail('')
-    setCustomerPhone('')
-    setOrderNotes('')
-  }
-
-  const handleConfirmOrder = () => {
-    if (!customerName.trim() || !customerEmail.trim() || !customerPhone.trim()) {
-      toast.error('Veuillez remplir tous les champs obligatoires')
-      return
-    }
-
-    setCheckoutLoading(true)
-    setTimeout(() => {
-      setCheckoutLoading(false)
-      setCheckoutSuccess(true)
-      clearCart()
-      toast.success('Commande confirmée ! Nous vous contacterons bientôt.')
-    }, 600)
+    setCartOpen(false)
+    goCheckout()
   }
 
   return (
@@ -163,6 +123,45 @@ export default function CartDrawer() {
           </SheetHeader>
 
           <Separator className="bg-gold/15" />
+
+          {/* Free Shipping Progress */}
+          {items.length > 0 && (() => {
+            const FREE_THRESHOLD = 30000
+            const effective = Math.max(0, subtotal - couponDiscount)
+            const remaining = Math.max(0, FREE_THRESHOLD - effective)
+            const progress = Math.min(100, (effective / FREE_THRESHOLD) * 100)
+            return (
+              <div className="px-5 py-3 bg-gradient-to-b from-stone-50/80 to-transparent border-b border-gold/10">
+                {remaining === 0 ? (
+                  <motion.p
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="font-[family-name:var(--font-dm-sans)] text-xs text-emerald-600 font-semibold flex items-center gap-1.5 mb-1.5"
+                  >
+                    <span className="text-sm">🎉</span> Livraison gratuite débloquée !
+                  </motion.p>
+                ) : (
+                  <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mb-1.5">
+                    Plus que{' '}
+                    <strong className="text-gold">{formatPrice(remaining)}</strong>{' '}
+                    pour la livraison gratuite
+                  </p>
+                )}
+                <div className="h-1.5 bg-beige rounded-full overflow-hidden">
+                  <motion.div
+                    className={`h-full rounded-full ${
+                      remaining === 0
+                        ? 'bg-emerald-400'
+                        : 'bg-gradient-to-r from-gold/50 to-gold'
+                    }`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Cart Items */}
           <div className="flex-1 overflow-y-auto px-5 py-3 min-h-0">
@@ -429,183 +428,6 @@ export default function CartDrawer() {
         </SheetContent>
       </Sheet>
 
-      {/* Checkout Dialog */}
-      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent className="sm:max-w-lg bg-cream border-gold/20 max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-[family-name:var(--font-playfair)] text-2xl text-text-dark">
-              {checkoutSuccess ? 'Commande confirmée !' : 'Finaliser la commande'}
-            </DialogTitle>
-            <DialogDescription className="font-[family-name:var(--font-dm-sans)] text-text-mid">
-              {checkoutSuccess
-                ? 'Merci pour votre commande. Nous vous contacterons bientôt.'
-                : 'Remplissez vos informations pour confirmer votre commande.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {checkoutSuccess ? (
-            <div className="py-8 text-center">
-              <div className="w-20 h-20 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-4">
-                <CheckCircle className="w-10 h-10 text-green-500" />
-              </div>
-              <p className="font-[family-name:var(--font-dm-sans)] text-text-dark font-medium">
-                Votre commande a été enregistrée avec succès !
-              </p>
-              <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid mt-2">
-                Vous recevrez un email de confirmation shortly.
-              </p>
-              <Button
-                onClick={() => {
-                  setCheckoutOpen(false)
-                  setCartOpen(false)
-                }}
-                className="mt-6 btn-gold px-8 h-11 border-0"
-              >
-                Continuer mes achats
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-5 mt-2">
-              {/* Customer Info Form */}
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
-                    <User className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
-                    Nom complet <span className="text-caramel">*</span>
-                  </Label>
-                  <Input
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Votre nom"
-                    className="bg-warm-white border-gold/20 focus:border-gold h-11 font-[family-name:var(--font-dm-sans)] rounded-xl"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
-                    <Mail className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
-                    Email <span className="text-caramel">*</span>
-                  </Label>
-                  <Input
-                    type="email"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    placeholder="votre@email.com"
-                    className="bg-warm-white border-gold/20 focus:border-gold h-11 font-[family-name:var(--font-dm-sans)] rounded-xl"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
-                    <Phone className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
-                    Téléphone <span className="text-caramel">*</span>
-                  </Label>
-                  <Input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="+223 XX XX XX XX"
-                    className="bg-warm-white border-gold/20 focus:border-gold h-11 font-[family-name:var(--font-dm-sans)] rounded-xl"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="font-[family-name:var(--font-dm-sans)] text-sm text-text-dark font-medium">
-                    <FileText className="w-3.5 h-3.5 inline mr-1.5 text-gold" />
-                    Notes (optionnel)
-                  </Label>
-                  <Textarea
-                    value={orderNotes}
-                    onChange={(e) => setOrderNotes(e.target.value)}
-                    placeholder="Instructions spéciales, adresse de livraison..."
-                    rows={2}
-                    className="bg-warm-white border-gold/20 focus:border-gold font-[family-name:var(--font-dm-sans)] rounded-xl resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* Order Summary */}
-              <div className="glass-card p-4 warm-shadow">
-                <h4 className="font-[family-name:var(--font-playfair)] text-base font-semibold text-text-dark mb-3">
-                  Récapitulatif
-                </h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between items-start gap-2"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-dark truncate">
-                          {item.name}
-                          {item.quantity > 1 && (
-                            <span className="text-text-mid">
-                              {' '}
-                              x{item.quantity}
-                            </span>
-                          )}
-                        </p>
-                        {item.color && (
-                          <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid">
-                            {item.color}
-                            {item.size ? ` / ${item.size}` : ''}
-                          </p>
-                        )}
-                      </div>
-                      <span className="font-[family-name:var(--font-dm-sans)] text-xs font-medium text-text-dark whitespace-nowrap">
-                        {formatPrice(item.price * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <Separator className="bg-gold/15 my-3" />
-
-                <div className="space-y-1">
-                  <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-                    <span>Sous-total</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </div>
-                  {couponDiscount > 0 && (
-                    <div className="flex justify-between font-[family-name:var(--font-dm-sans)] text-xs text-green-600">
-                      <span>
-                        Réduction{coupon ? ` (${coupon})` : ''}
-                      </span>
-                      <span>-{formatPrice(couponDiscount)}</span>
-                    </div>
-                  )}
-                  <Separator className="bg-gold/15 my-1" />
-                  <div className="flex justify-between font-[family-name:var(--font-playfair)] text-base font-semibold text-text-dark">
-                    <span>Total</span>
-                    <span className="text-gold">{formatPrice(total)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Confirm Button */}
-              <Button
-                onClick={handleConfirmOrder}
-                disabled={
-                  checkoutLoading ||
-                  !customerName.trim() ||
-                  !customerEmail.trim() ||
-                  !customerPhone.trim()
-                }
-                className="w-full btn-gold h-12 text-sm tracking-wider border-0"
-              >
-                {checkoutLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Traitement en cours...
-                  </>
-                ) : (
-                  'Confirmer la commande'
-                )}
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

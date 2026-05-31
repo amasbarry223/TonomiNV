@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect, lazy, Suspense } from 'react'
+const ImageLightbox = lazy(() => import('@/components/ui/ImageLightbox'))
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star,
@@ -10,11 +11,10 @@ import {
   Plus,
   ChevronRight,
   Home,
-  ZoomIn,
+  Maximize2,
   Truck,
   RefreshCcw,
   Shield,
-  AlertCircle,
 } from 'lucide-react'
 import {
   Accordion,
@@ -23,7 +23,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Progress } from '@/components/ui/progress'
-import { Skeleton } from '@/components/ui/skeleton'
+import { ProductImage } from '@/components/ui/product-image'
 import { getProductById, getProductsByCategory, type Product } from '@/data/products'
 import { categories as staticCategories, type Category } from '@/data/categories'
 import { useCartStore } from '@/stores/cart-store'
@@ -134,7 +134,22 @@ function ProductDetail({ product }: { product: Product }) {
   const [addingToCart, setAddingToCart] = useState(false)
   const [isZooming, setIsZooming] = useState(false)
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 })
+  const [showStickyBar, setShowStickyBar] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIdx, setLightboxIdx] = useState(0)
   const imageRef = useRef<HTMLDivElement>(null)
+  const ctaRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ctaRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+      { rootMargin: '-80px 0px 0px 0px' }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   const categories = staticCategories
   const similarProducts = useMemo(
@@ -244,11 +259,11 @@ function ProductDetail({ product }: { product: Product }) {
               {/* Thumbnails - Vertical on desktop */}
               {product.images.length > 1 && (
                 <div className="flex sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:max-h-[500px] pb-2 sm:pb-0 sm:pr-2">
-                  {product.images.map((_, idx) => (
+                  {product.images.map((img, idx) => (
                     <motion.button
                       key={idx}
                       onClick={() => setSelectedImage(idx)}
-                      className={`flex-shrink-0 w-16 h-20 sm:w-20 sm:h-24 rounded-xl overflow-hidden border-2 transition-all ${
+                      className={`relative flex-shrink-0 w-16 h-20 sm:w-20 sm:h-24 rounded-xl overflow-hidden border-2 transition-all bg-beige/40 ${
                         selectedImage === idx
                           ? 'border-gold ring-2 ring-gold/20'
                           : 'border-transparent hover:border-gold/30'
@@ -256,9 +271,13 @@ function ProductDetail({ product }: { product: Product }) {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      <div className="w-full h-full bg-gradient-to-br from-beige to-gold/20 flex items-center justify-center">
-                        <ShoppingBag className="w-6 h-6 text-gold/30" />
-                      </div>
+                      <ProductImage
+                        src={img}
+                        alt={`${product.name} - vue ${idx + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="80px"
+                      />
                     </motion.button>
                   ))}
                 </div>
@@ -267,16 +286,37 @@ function ProductDetail({ product }: { product: Product }) {
               {/* Main Image */}
               <div
                 ref={imageRef}
-                className="relative flex-1 aspect-[3/4] bg-gradient-to-br from-beige to-gold/20 rounded-2xl overflow-hidden cursor-crosshair"
+                className="relative flex-1 aspect-[3/4] bg-beige/40 rounded-2xl overflow-hidden cursor-zoom-in group/main"
                 onMouseEnter={() => setIsZooming(true)}
                 onMouseLeave={() => setIsZooming(false)}
                 onMouseMove={handleMouseMove}
+                onClick={() => { setLightboxIdx(selectedImage); setLightboxOpen(true) }}
               >
-                <div className="w-full h-full flex items-center justify-center">
-                  <ShoppingBag className="w-24 h-24 text-gold/20" />
+                {/* Fullscreen hint */}
+                <div className="absolute top-4 right-4 z-10 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 opacity-0 group-hover/main:opacity-100 transition-opacity duration-200">
+                  <Maximize2 className="w-3.5 h-3.5 text-white" />
+                  <span className="font-[family-name:var(--font-dm-sans)] text-white text-[10px] font-medium">Agrandir</span>
+                </div>
+                {/* Image with zoom */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    transform: isZooming ? 'scale(1.35)' : 'scale(1)',
+                    transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                    transition: isZooming ? 'none' : 'transform 0.4s ease',
+                  }}
+                >
+                  <ProductImage
+                    src={product.images[selectedImage] || product.images[0]}
+                    alt={product.name}
+                    fill
+                    className="object-contain"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    priority={selectedImage === 0}
+                  />
                 </div>
                 {product.badge && (
-                  <span className={`absolute top-4 left-4 text-xs font-semibold px-3 py-1.5 rounded-full ${
+                  <span className={`absolute top-4 left-4 z-10 text-xs font-semibold px-3 py-1.5 rounded-full ${
                     product.badge === 'nouveau' ? 'bg-emerald-500 text-white' :
                     product.badge === 'promo' ? 'bg-caramel text-white' :
                     'bg-gray-400 text-white'
@@ -284,28 +324,6 @@ function ProductDetail({ product }: { product: Product }) {
                     {product.badge === 'nouveau' ? 'Nouveau' : product.badge === 'promo' ? 'Promo' : 'Épuisé'}
                   </span>
                 )}
-                {/* Zoom indicator */}
-                <motion.div
-                  className="absolute top-4 right-4 bg-white/70 backdrop-blur-sm rounded-full p-2"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: isZooming ? 1 : 0 }}
-                >
-                  <ZoomIn className="w-4 h-4 text-text-mid" />
-                </motion.div>
-                {/* Zoom overlay */}
-                <AnimatePresence>
-                  {isZooming && (
-                    <motion.div
-                      className="absolute inset-0 pointer-events-none"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      style={{
-                        background: `radial-gradient(circle at ${zoomPos.x}% ${zoomPos.y}%, rgba(212,175,106,0.15) 0%, transparent 50%)`,
-                      }}
-                    />
-                  )}
-                </AnimatePresence>
               </div>
             </div>
           </motion.div>
@@ -487,7 +505,7 @@ function ProductDetail({ product }: { product: Product }) {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div ref={ctaRef} className="flex flex-col sm:flex-row gap-3 mb-6">
               <motion.button
                 className={`flex-1 py-3.5 rounded-xl font-[family-name:var(--font-dm-sans)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 ${
                   isOutOfStock
@@ -530,7 +548,7 @@ function ProductDetail({ product }: { product: Product }) {
               <div className="flex flex-col items-center text-center p-3 rounded-xl bg-beige/30">
                 <Truck className="w-5 h-5 text-gold mb-1.5" />
                 <span className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid leading-tight">
-                  Livraison gratuite<br />dès 25 000 FCFA
+                  Livraison gratuite<br />dès 30 000 FCFA
                 </span>
               </div>
               <div className="flex flex-col items-center text-center p-3 rounded-xl bg-beige/30">
@@ -625,9 +643,10 @@ function ProductDetail({ product }: { product: Product }) {
                     <div>
                       <p className="font-semibold text-text-dark mb-1">Livraison</p>
                       <ul className="list-disc list-inside space-y-1">
-                        <li>Livraison standard (3-5 jours) : 2 500 FCFA</li>
-                        <li>Livraison express (24-48h) : 4 000 FCFA</li>
-                        <li>Gratuite dès 25 000 FCFA d&apos;achat</li>
+                        <li>Bamako : 2 000 FCFA (2-5 jours ouvrés)</li>
+                        <li>Autres villes Mali : 5 000 FCFA</li>
+                        <li>International : 15 000 FCFA</li>
+                        <li>Gratuite dès 30 000 FCFA d&apos;achat</li>
                       </ul>
                     </div>
                     <div>
@@ -741,6 +760,53 @@ function ProductDetail({ product }: { product: Product }) {
           </motion.section>
         )}
       </div>
+
+      {/* Image Lightbox */}
+      {lightboxOpen && (
+        <Suspense fallback={null}>
+          <ImageLightbox
+            images={product.images}
+            initialIndex={lightboxIdx}
+            productName={product.name}
+            onClose={() => setLightboxOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Sticky mobile CTA */}
+      <AnimatePresence>
+        {showStickyBar && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white/95 backdrop-blur-md border-t border-gold/15 px-4 py-3 flex items-center gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid truncate">
+                {product.name}
+              </p>
+              <p className="font-[family-name:var(--font-playfair)] text-base font-bold text-gold">
+                {formatPrice(product.pricePromo ?? product.price)}
+              </p>
+            </div>
+            <motion.button
+              onClick={handleAddToCart}
+              disabled={isOutOfStock || addingToCart}
+              className={`shrink-0 px-5 py-2.5 rounded-xl font-[family-name:var(--font-dm-sans)] text-sm font-semibold flex items-center gap-2 ${
+                isOutOfStock
+                  ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                  : 'btn-gold text-white border-0'
+              }`}
+              whileTap={!isOutOfStock ? { scale: 0.96 } : {}}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {addingToCart ? 'Ajouté !' : isOutOfStock ? 'Épuisé' : 'Ajouter'}
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

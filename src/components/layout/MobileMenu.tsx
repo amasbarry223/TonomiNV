@@ -147,7 +147,7 @@ export default function MobileMenu({ onClose, currentPage, onNavigate }: MobileM
             <Facebook className="w-5 h-5" />
           </a>
           <a
-            href="https://wa.me/223XXXXXXXX"
+            href="https://wa.me/22375666853"
             target="_blank"
             rel="noopener noreferrer"
             className="w-10 h-10 rounded-full bg-warm-white shadow-sm flex items-center justify-center text-caramel hover:text-gold hover:shadow-md transition-all"

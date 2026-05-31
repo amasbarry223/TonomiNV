@@ -3,7 +3,8 @@
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Heart, ShoppingBag, Menu } from 'lucide-react'
+import { Search, Heart, ShoppingBag, Menu, User } from 'lucide-react'
+import Logo from '@/components/shared/Logo'
 import { useNavStore, type PageName } from '@/stores/nav-store'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
@@ -11,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 
 const SearchOverlay = dynamic(() => import('./SearchOverlay'), { ssr: false })
 const MobileMenu = dynamic(() => import('./MobileMenu'), { ssr: false })
+const AnnouncementBar = dynamic(() => import('./AnnouncementBar'), { ssr: false })
 
 const navLinks: { label: string; page: PageName }[] = [
   { label: 'Accueil', page: 'home' },
@@ -33,6 +35,7 @@ export default function Navbar() {
 
   const closeSearch = useCallback(() => setSearchOpen(false), [])
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
+  const { goAccount } = useNavStore()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -60,6 +63,7 @@ export default function Navbar() {
         animate={{ y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
+        <AnnouncementBar />
         <div
           className={`bg-white transition-all duration-500 ${
             scrolled
@@ -72,13 +76,11 @@ export default function Navbar() {
               {/* Logo */}
               <motion.button
                 onClick={() => handleNavClick('home')}
-                className="flex items-center gap-2 focus:outline-none"
+                className="flex items-center focus:outline-none"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <span className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold tracking-wider text-black">
-                  TONOMI
-                </span>
+                <Logo className="h-16 sm:h-20 w-auto" />
               </motion.button>
 
               {/* Desktop Navigation */}
@@ -112,6 +114,17 @@ export default function Navbar() {
                   aria-label="Rechercher"
                 >
                   <Search className="w-5 h-5" />
+                </motion.button>
+
+                {/* Account */}
+                <motion.button
+                  onClick={() => handleNavClick('account')}
+                  className="relative p-2 rounded-full text-black hover:text-black/70 hover:bg-black/5 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  aria-label="Mon compte"
+                >
+                  <User className="w-5 h-5" />
                 </motion.button>
 
                 {/* Wishlist */}

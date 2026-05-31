@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type PageName = 'home' | 'catalogue' | 'promotions' | 'about' | 'contact' | 'product';
+export type PageName = 'home' | 'catalogue' | 'promotions' | 'about' | 'contact' | 'product' | 'checkout' | 'account' | 'tracking';
 
 interface NavStore {
   currentPage: PageName;
@@ -14,6 +14,9 @@ interface NavStore {
   goPromotions: () => void;
   goAbout: () => void;
   goContact: () => void;
+  goCheckout: () => void;
+  goAccount: () => void;
+  goTracking: () => void;
 }
 
 const scrollToTop = () => {
@@ -89,6 +92,21 @@ export const useNavStore = create<NavStore>()((set) => ({
       selectedProductId: null,
       selectedCategory: null,
     });
+    scrollToTop();
+  },
+
+  goCheckout: () => {
+    set({ currentPage: 'checkout', selectedProductId: null, selectedCategory: null });
+    scrollToTop();
+  },
+
+  goAccount: () => {
+    set({ currentPage: 'account', selectedProductId: null, selectedCategory: null });
+    scrollToTop();
+  },
+
+  goTracking: () => {
+    set({ currentPage: 'tracking', selectedProductId: null, selectedCategory: null });
     scrollToTop();
   },
 }));

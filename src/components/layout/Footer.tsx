@@ -2,6 +2,7 @@
 
 import { Instagram, Facebook, MessageCircle, CreditCard, Smartphone, Mail, Phone, MapPin } from 'lucide-react'
 import { useNavStore, type PageName } from '@/stores/nav-store'
+import Logo from '@/components/shared/Logo'
 
 const navLinks: { label: string; page: PageName }[] = [
   { label: 'Accueil', page: 'home' },
@@ -9,6 +10,8 @@ const navLinks: { label: string; page: PageName }[] = [
   { label: 'Promotions', page: 'promotions' },
   { label: 'À Propos', page: 'about' },
   { label: 'Contact', page: 'contact' },
+  { label: 'Suivre ma commande', page: 'tracking' },
+  { label: 'Mon compte', page: 'account' },
 ]
 
 const categories = ['Bijoux', 'Sacs', 'Foulards', 'Lunettes', 'Ceintures']
@@ -23,10 +26,8 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Column 1: Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <h3 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-white tracking-wider">
-              TONOMI
-            </h3>
-            <p className="mt-3 font-[family-name:var(--font-cormorant)] text-lg text-white/80 italic">
+            <Logo variant="dark-bg" className="h-12 w-auto" />
+            <p className="mt-2 font-[family-name:var(--font-cormorant)] text-lg text-white/80 italic">
               L&apos;élégance à la Mali
             </p>
             <div className="flex items-center gap-3 mt-5">
@@ -49,7 +50,7 @@ export default function Footer() {
                 <Facebook className="w-5 h-5" />
               </a>
               <a
-                href="https://wa.me/223XXXXXXXX"
+                href="https://wa.me/22375666853"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 shadow-sm hover:shadow-md hover:scale-110 transition-all text-white hover:text-gold"

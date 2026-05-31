@@ -10,6 +10,7 @@ import { PageSkeleton, SectionSkeleton } from '@/components/ui/page-skeleton'
 import { useNavStore } from '@/stores/nav-store'
 
 import HeroSection from '@/components/home/HeroSection'
+import TrustRow from '@/components/home/TrustRow'
 import CategoriesSection from '@/components/home/CategoriesSection'
 import NewArrivals from '@/components/home/NewArrivals'
 import BestSellers from '@/components/home/BestSellers'
@@ -48,6 +49,15 @@ const AboutPage = dynamic(() => import('@/components/about/AboutPage'), {
 const ContactPage = dynamic(() => import('@/components/contact/ContactPage'), {
   loading: () => <PageSkeleton />,
 })
+const CheckoutPage = dynamic(() => import('@/components/checkout/CheckoutPage'), {
+  loading: () => <PageSkeleton />,
+})
+const AccountPage = dynamic(() => import('@/components/account/AccountPage'), {
+  loading: () => <PageSkeleton />,
+})
+const TrackingPage = dynamic(() => import('@/components/tracking/TrackingPage'), {
+  loading: () => <PageSkeleton />,
+})
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -65,6 +75,7 @@ function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
       <HeroSection />
+      <TrustRow />
       <CategoriesSection />
       <NewArrivals />
       <BestSellers />
@@ -94,6 +105,12 @@ export default function Home() {
         return <AboutPage />
       case 'contact':
         return <ContactPage />
+      case 'checkout':
+        return <CheckoutPage />
+      case 'account':
+        return <AccountPage />
+      case 'tracking':
+        return <TrackingPage />
       default:
         return <HomePage />
     }
