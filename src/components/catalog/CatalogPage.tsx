@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LayoutGrid, List, ChevronRight, Home, Heart, X, Search, SlidersHorizontal, ArrowUpDown } from 'lucide-react'
+import {
+  LayoutGrid, List, ChevronRight, ChevronLeft,
+  Home, Heart, X, ArrowUpDown, Sparkles, LayoutList, SlidersHorizontal,
+} from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -18,25 +21,145 @@ import ProductGrid from './ProductGrid'
 import QuickViewModal from './QuickViewModal'
 import CatalogSearchBar from './CatalogSearchBar'
 import CatalogProductResults from './CatalogProductResults'
+import { ProductImage } from '@/components/ui/product-image'
+import { getProductImagePaths } from '@/data/product-image-map'
 
-const CAT_PILLS = [
-  { slug: '', label: 'Tout voir', emoji: '✨' },
-  { slug: 'bijoux', label: 'Bijoux', emoji: '💎' },
-  { slug: 'sacs', label: 'Sacs', emoji: '👜' },
-  { slug: 'foulards', label: 'Foulards', emoji: '🧣' },
-  { slug: 'lunettes', label: 'Lunettes', emoji: '🕶️' },
-  { slug: 'ceintures', label: 'Ceintures', emoji: '👗' },
-  { slug: 'accessoires-cheveux', label: 'Cheveux', emoji: '✨' },
-]
+const CATALOG_HEADER_IMAGE = getProductImagePaths('prod-008', 'sacs', 1)[0]
 
-const CAT_DESCRIPTIONS: Record<string, string> = {
-  '': 'Toute la collection — 48 pièces artisanales du Mali',
-  bijoux: 'Colliers, bracelets et boucles d\'oreilles — savoir-faire malien',
-  sacs: 'Sacs et pochettes en cuir véritable — confectionnés à la main',
-  foulards: 'Foulards wax et soie — motifs traditionnels contemporains',
-  lunettes: 'Lunettes de soleil et montres — style sous le soleil du Sahel',
-  ceintures: 'Ceintures cuir et chaînes — élégance affirmée',
-  'accessoires-cheveux': 'Barrettes, diadèmes et serre-têtes — couronner votre beauté',
+// ─── Category Strip ───────────────────────────────────────────────────────────
+function CategoryStrip({
+  active,
+  onChange,
+}: {
+  active: string
+  onChange: (slug: string) => void
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canLeft, setCanLeft] = useState(false)
+  const [canRight, setCanRight] = useState(false)
+
+  const updateArrows = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 8)
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 8)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    updateArrows()
+    el.addEventListener('scroll', updateArrows, { passive: true })
+    const ro = new ResizeObserver(updateArrows)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', updateArrows); ro.disconnect() }
+  }, [updateArrows])
+
+  const scroll = (dir: 'left' | 'right') => {
+    scrollRef.current?.scrollBy({ left: dir === 'right' ? 200 : -200, behavior: 'smooth' })
+  }
+
+  const totalProducts = categories.reduce((s, c) => s + c.productCount, 0)
+
+  return (
+    <div className="bg-white border-b border-gold/10 shadow-sm">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative flex items-center">
+
+          {/* Left arrow */}
+          <AnimatePresence>
+            {canLeft && (
+              <motion.button
+                initial={{ opacity: 0, x: -4 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -4 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => scroll('left')}
+                className="absolute left-0 z-10 w-8 h-8 rounded-full bg-white border border-gold/20 shadow-md flex items-center justify-center hover:bg-gold hover:border-gold hover:text-white text-text-mid transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          {/* Left fade mask */}
+          {canLeft && (
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-white to-transparent z-[5] pointer-events-none" />
+          )}
+
+          {/* Scrollable pills */}
+          <div
+            ref={scrollRef}
+            className="flex gap-2 overflow-x-auto py-3 scrollbar-hide flex-1 px-2"
+          >
+            {/* Tout voir */}
+            <motion.button
+              onClick={() => onChange('')}
+              whileTap={{ scale: 0.96 }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shrink-0 font-[family-name:var(--font-dm-sans)] ${
+                active === ''
+                  ? 'bg-gold text-white shadow-md shadow-gold/25'
+                  : 'bg-cream text-text-mid border border-gold/15 hover:border-gold/40 hover:text-gold'
+              }`}
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              Tout voir
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                active === '' ? 'bg-white/20 text-white' : 'bg-gold/10 text-gold'
+              }`}>
+                {totalProducts}
+              </span>
+            </motion.button>
+
+            {/* Dynamic categories */}
+            {categories.map((cat) => {
+              const isActive = active === cat.slug
+              return (
+                <motion.button
+                  key={cat.id}
+                  onClick={() => onChange(cat.slug)}
+                  whileTap={{ scale: 0.96 }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shrink-0 font-[family-name:var(--font-dm-sans)] ${
+                    isActive
+                      ? 'bg-gold text-white shadow-md shadow-gold/25'
+                      : 'bg-cream text-text-mid border border-gold/15 hover:border-gold/40 hover:text-gold'
+                  }`}
+                >
+                  {cat.name}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-gold/10 text-gold'
+                  }`}>
+                    {cat.productCount}
+                  </span>
+                </motion.button>
+              )
+            })}
+          </div>
+
+          {/* Right fade mask */}
+          {canRight && (
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent z-[5] pointer-events-none" />
+          )}
+
+          {/* Right arrow */}
+          <AnimatePresence>
+            {canRight && (
+              <motion.button
+                initial={{ opacity: 0, x: 4 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 4 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => scroll('right')}
+                className="absolute right-0 z-10 w-8 h-8 rounded-full bg-white border border-gold/20 shadow-md flex items-center justify-center hover:bg-gold hover:border-gold hover:text-white text-text-mid transition-all"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function CatalogPage() {
@@ -134,16 +257,29 @@ export default function CatalogPage() {
   return (
     <div className="min-h-screen bg-cream">
 
-      {/* ── Hero header ────────────────────────────────────── */}
-      <div className="bg-gradient-to-b from-white via-white to-cream pt-28 pb-0">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      {/* ── Hero ────────────────────────────────────────────── */}
+      <section className="relative pt-36 pb-10 sm:pt-44 sm:pb-14 overflow-hidden">
+        <div className="absolute inset-0">
+          <ProductImage
+            src={CATALOG_HEADER_IMAGE}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black/75" />
+        </div>
+
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-1.5 text-xs text-text-mid mb-5 font-[family-name:var(--font-dm-sans)]">
-            <button onClick={goHome} className="flex items-center gap-1 hover:text-gold transition-colors">
+          <nav className="flex items-center gap-1.5 text-xs text-white/50 mb-6 font-[family-name:var(--font-dm-sans)]">
+            <button onClick={goHome} className="flex items-center gap-1 hover:text-white/80 transition-colors">
               <Home className="w-3.5 h-3.5" /> Accueil
             </button>
             <ChevronRight className="w-3 h-3 opacity-40" />
-            <span className={activeCatLabel ? 'text-text-mid' : 'text-gold font-medium'}>Catalogue</span>
+            <span className={activeCatLabel ? 'text-white/50' : 'text-gold font-medium'}>Catalogue</span>
             {activeCatLabel && (
               <>
                 <ChevronRight className="w-3 h-3 opacity-40" />
@@ -152,45 +288,57 @@ export default function CatalogPage() {
             )}
           </nav>
 
-          {/* Title */}
           <motion.div
-            key={category}
-            initial={{ opacity: 0, y: 10 }}
+            className="text-center"
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35 }}
-            className="mb-6"
+            transition={{ duration: 0.7 }}
           >
-            <h1 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-text-dark">
-              {activeCatLabel || 'La Collection'}
-            </h1>
-            <p className="text-sm text-text-mid font-[family-name:var(--font-dm-sans)] mt-1.5">
-              {CAT_DESCRIPTIONS[category] ?? ''}
-            </p>
-          </motion.div>
+            <motion.div
+              className="inline-flex items-center gap-2 bg-white/15 text-gold border border-white/20 backdrop-blur-sm px-5 py-2 rounded-full mb-6"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold tracking-wide uppercase">
+                Notre Boutique
+              </span>
+            </motion.div>
 
-          {/* Category pills */}
-          <div className="flex gap-2 overflow-x-auto pb-5 scrollbar-hide -mx-1 px-1">
-            {CAT_PILLS.map((cat) => {
-              const active = category === cat.slug
-              return (
-                <motion.button
-                  key={cat.slug}
-                  onClick={() => setCategory(cat.slug)}
-                  whileTap={{ scale: 0.96 }}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all shrink-0 font-[family-name:var(--font-dm-sans)] ${
-                    active
-                      ? 'bg-gold text-white shadow-md shadow-gold/25'
-                      : 'bg-white text-text-mid border border-gold/15 hover:border-gold/40 hover:text-gold'
-                  }`}
-                >
-                  <span className="text-base leading-none">{cat.emoji}</span>
-                  {cat.label}
-                </motion.button>
-              )
-            })}
-          </div>
+            <motion.div key={category} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+              <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
+                {activeCatLabel
+                  ? <><span className="text-gold-gradient">{activeCatLabel}</span></>
+                  : <>La <span className="text-gold-gradient">Collection</span></>
+                }
+              </h1>
+              <motion.p
+                className="mt-4 font-[family-name:var(--font-dm-sans)] text-lg sm:text-xl text-gold font-semibold tracking-[0.15em] uppercase"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              >
+                Bijoux • Sacs • Foulards • Accessoires
+              </motion.p>
+              <motion.p
+                className="mt-3 font-[family-name:var(--font-dm-sans)] text-sm sm:text-base text-white/75 max-w-xl mx-auto leading-relaxed"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                {category
+                  ? categories.find((c) => c.slug === category)?.description ?? ''
+                  : 'Toute la collection — pièces artisanales du Mali'
+                }
+              </motion.p>
+            </motion.div>
+          </motion.div>
         </div>
-      </div>
+      </section>
+
+      {/* ── Category pills strip ─────────────────────────────── */}
+      <CategoryStrip active={category} onChange={setCategory} />
 
       {/* ── Sticky toolbar ─────────────────────────────────── */}
       <div className="sticky top-[72px] z-20 bg-cream/95 backdrop-blur-sm border-b border-gold/10 shadow-sm">

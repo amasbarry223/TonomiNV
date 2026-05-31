@@ -14,6 +14,8 @@ import {
   Star,
   ArrowRight,
   AlertCircle,
+  Flame,
+  Timer,
 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -219,76 +221,133 @@ function FlashSaleCard({ sale, product }: { sale: FlashSale; product: Product })
 
   return (
     <motion.div
-      className="glass-card overflow-hidden cursor-pointer"
-      whileHover={{ y: -6, boxShadow: '0 12px 30px rgba(212, 175, 106, 0.2)' }}
-      transition={{ duration: 0.3 }}
+      className="group relative overflow-hidden rounded-2xl cursor-pointer bg-white/5 border border-white/10 hover:border-gold/40 transition-all duration-300"
+      whileHover={{ y: -4, boxShadow: '0 16px 40px rgba(0,0,0,0.4)' }}
+      transition={{ duration: 0.25 }}
       onClick={() => goProduct(product.id)}
     >
-      <div className="relative aspect-[3/4] bg-gradient-to-br from-beige to-gold/20 overflow-hidden">
+      {/* Image */}
+      <div className="relative aspect-[4/3] overflow-hidden">
         <ProductImage
           src={product.images[0]}
           alt={product.name}
           fill
-          sizes="(max-width: 768px) 50vw, 25vw"
-          className="product-image object-cover"
+          sizes="(max-width: 768px) 100vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div className="absolute top-3 left-3 flex items-center gap-1 bg-caramel text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-          <Zap className="w-3 h-3" /> –{sale.discount}%
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+        {/* Discount badge */}
+        <div className="absolute top-3 left-3 flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+          <Zap className="w-3 h-3 fill-white" /> –{sale.discount}%
         </div>
-        <div className="absolute top-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-caramel text-xs font-medium px-2 py-1 rounded-full">
-          <Clock className="w-3 h-3" />
-          {String(timeLeft.hours).padStart(2, '0')}:
-          {String(timeLeft.minutes).padStart(2, '0')}:
-          {String(timeLeft.seconds).padStart(2, '0')}
-        </div>
-        <div className="quick-add absolute bottom-0 inset-x-0 p-3 bg-white/90 backdrop-blur-sm">
-          <Button
-            className="w-full btn-gold text-xs h-9"
-            onClick={(e) => {
-              e.stopPropagation()
-              addItem({
-                id: `${product.id}-${product.colors[0]}-${product.sizes[0]}`,
-                productId: product.id,
-                name: product.name,
-                price: promoPrice,
-                quantity: 1,
-                color: product.colors[0] || '',
-                size: product.sizes[0] || '',
-                image: product.images[0] || '',
-              })
-              toast.success(`${product.name} ajouté au panier`)
-            }}
+
+        {/* Low stock warning */}
+        {isLowStock && (
+          <motion.div
+            className="absolute top-3 right-3 flex items-center gap-1 bg-red-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full"
+            animate={{ opacity: [1, 0.5, 1] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
           >
-            <Zap className="w-3.5 h-3.5 mr-1" /> Acheter flash
-          </Button>
+            <Flame className="w-3 h-3" /> Presque épuisé
+          </motion.div>
+        )}
+
+        {/* Countdown overlay at bottom of image */}
+        <div className="absolute bottom-0 inset-x-0 px-4 py-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Timer className="w-3.5 h-3.5 text-gold" />
+            <span className="font-[family-name:var(--font-dm-sans)] text-[10px] text-white/70 uppercase tracking-wider">
+              Expire dans
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {[
+              { v: timeLeft.hours, l: 'h' },
+              { v: timeLeft.minutes, l: 'm' },
+              { v: timeLeft.seconds, l: 's' },
+            ].map((unit, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <div className="bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg px-2 py-1 min-w-[36px] text-center">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={unit.v}
+                      className="font-[family-name:var(--font-playfair)] text-base font-bold text-white block"
+                      initial={{ y: -8, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: 8, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      {String(unit.v).padStart(2, '0')}
+                    </motion.span>
+                  </AnimatePresence>
+                </div>
+                <span className="font-[family-name:var(--font-dm-sans)] text-[10px] text-white/60">{unit.l}</span>
+                {i < 2 && <span className="font-bold text-gold text-sm -mx-0.5">:</span>}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Info */}
       <div className="p-4">
-        <h3 className="font-[family-name:var(--font-dm-sans)] text-sm font-medium text-text-dark line-clamp-1">
+        <h3 className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-white line-clamp-1">
           {product.name}
         </h3>
-        <div className="flex items-center gap-2 mt-2">
-          <span className="font-[family-name:var(--font-dm-sans)] text-base font-bold text-caramel">
-            {promoPrice.toLocaleString('fr-FR')} FCFA
+
+        <div className="flex items-baseline gap-2 mt-2">
+          <span className="font-[family-name:var(--font-playfair)] text-lg font-bold text-gold">
+            {promoPrice.toLocaleString('fr-FR')}
           </span>
-          <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid line-through">
+          <span className="font-[family-name:var(--font-dm-sans)] text-[10px] text-white/40">FCFA</span>
+          <span className="font-[family-name:var(--font-dm-sans)] text-xs text-white/30 line-through ml-auto">
             {product.price.toLocaleString('fr-FR')} FCFA
           </span>
         </div>
+
+        {/* Stock bar */}
         <div className="mt-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className={`font-[family-name:var(--font-dm-sans)] text-xs font-semibold ${isLowStock ? 'text-red-600' : 'text-caramel'}`}>
-              {sale.stockLeft} restants
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`font-[family-name:var(--font-dm-sans)] text-[10px] font-semibold flex items-center gap-1 ${isLowStock ? 'text-red-400' : 'text-white/60'}`}>
+              {isLowStock && <Flame className="w-3 h-3" />}
+              {sale.stockLeft} restant{sale.stockLeft > 1 ? 's' : ''}
             </span>
-            <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-              {sale.totalStock} total
+            <span className="font-[family-name:var(--font-dm-sans)] text-[10px] text-white/30">
+              {Math.round(stockPercent)}% dispo
             </span>
           </div>
-          <Progress
-            value={stockPercent}
-            className={`h-2 ${isLowStock ? '[&>[data-slot=progress-indicator]]:bg-red-500' : ''}`}
-          />
+          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+            <motion.div
+              className={`h-full rounded-full ${isLowStock ? 'bg-gradient-to-r from-red-500 to-orange-400' : 'bg-gradient-to-r from-gold to-caramel'}`}
+              initial={{ width: 0 }}
+              whileInView={{ width: `${stockPercent}%` }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+            />
+          </div>
         </div>
+
+        {/* CTA */}
+        <button
+          className="mt-4 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-gold to-caramel hover:from-caramel hover:to-gold text-white text-xs font-semibold font-[family-name:var(--font-dm-sans)] py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-gold/20"
+          onClick={(e) => {
+            e.stopPropagation()
+            addItem({
+              id: `${product.id}-${product.colors[0]}-${product.sizes[0]}`,
+              productId: product.id,
+              name: product.name,
+              price: promoPrice,
+              quantity: 1,
+              color: product.colors[0] || '',
+              size: product.sizes[0] || '',
+              image: product.images[0] || '',
+            })
+            toast.success(`${product.name} ajouté au panier`)
+          }}
+        >
+          <Zap className="w-3.5 h-3.5 fill-white" /> Acheter maintenant
+        </button>
       </div>
     </motion.div>
   )
@@ -530,7 +589,7 @@ export default function PromotionsPage() {
   return (
     <div className="min-h-screen">
       {/* ── Header with Countdown ── */}
-      <section className="relative pt-24 pb-12 sm:pt-32 sm:pb-16 overflow-hidden">
+      <section className="relative pt-36 pb-12 sm:pt-44 sm:pb-16 overflow-hidden">
         <div className="absolute inset-0">
           <ProductImage
             src={PROMO_HEADER_IMAGE}
@@ -665,44 +724,71 @@ export default function PromotionsPage() {
           </section>
 
           {/* ── Ventes Flash ── */}
-          <section className="py-12 sm:py-16 bg-warm-white">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <section className="py-0 overflow-hidden">
+            {/* Ticker animé */}
+            <div className="bg-gradient-to-r from-orange-600 via-red-500 to-orange-600 py-2 overflow-hidden">
               <motion.div
-                className="flex items-center gap-3 mb-8"
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
+                className="flex gap-8 whitespace-nowrap"
+                animate={{ x: ['0%', '-50%'] }}
+                transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
               >
-                <div className="w-10 h-10 rounded-full bg-caramel/10 flex items-center justify-center">
-                  <Zap className="w-5 h-5 text-caramel" />
-                </div>
-                <div>
-                  <h2 className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-text-dark">
-                    Ventes Flash
-                  </h2>
-                  <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid">
-                    Dépêchez-vous, stock limité !
-                  </p>
-                </div>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <span key={i} className="font-[family-name:var(--font-dm-sans)] text-xs font-bold text-white tracking-widest uppercase inline-flex items-center gap-3">
+                    <Zap className="w-3 h-3 fill-white inline" /> Vente Flash
+                    <span className="opacity-60">•</span>
+                    <Flame className="w-3 h-3 fill-white inline" /> Stock Limité
+                    <span className="opacity-60">•</span>
+                    <Timer className="w-3 h-3 inline" /> Offres Éphémères
+                    <span className="opacity-60">•</span>
+                  </span>
+                ))}
               </motion.div>
+            </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                {flashSales.map((sale, i) => {
-                  const product = productsMap[sale.productId]
-                  if (!product) return null
-                  return (
-                    <motion.div
-                      key={sale.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.4, delay: i * 0.08 }}
-                    >
-                      <FlashSaleCard sale={sale} product={product} />
-                    </motion.div>
-                  )
-                })}
+            {/* Dark section body */}
+            <div className="bg-gradient-to-b from-[#0f0800] via-[#1a0f02] to-[#0f0800] py-12 sm:py-16">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+                {/* Header */}
+                <motion.div
+                  className="text-center mb-10"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <div className="inline-flex items-center gap-2 bg-orange-500/15 border border-orange-500/30 text-orange-400 px-4 py-1.5 rounded-full text-xs font-semibold font-[family-name:var(--font-dm-sans)] uppercase tracking-widest mb-4">
+                    <Flame className="w-3.5 h-3.5 fill-orange-400" /> Offres éphémères
+                  </div>
+                  <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight">
+                    Ventes{' '}
+                    <span className="bg-gradient-to-r from-orange-400 via-gold to-caramel bg-clip-text text-transparent">
+                      Flash
+                    </span>
+                  </h2>
+                  <p className="font-[family-name:var(--font-dm-sans)] text-sm text-white/50 mt-3 max-w-md mx-auto">
+                    Ces prix ne durent pas. Chaque seconde compte — agissez maintenant avant épuisement des stocks.
+                  </p>
+                </motion.div>
+
+                {/* Cards grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  {flashSales.map((sale, i) => {
+                    const product = productsMap[sale.productId]
+                    if (!product) return null
+                    return (
+                      <motion.div
+                        key={sale.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.4, delay: i * 0.07 }}
+                      >
+                        <FlashSaleCard sale={sale} product={product} />
+                      </motion.div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </section>

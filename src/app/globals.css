@@ -226,6 +226,19 @@
   animation-play-state: paused;
 }
 
+@keyframes marquee-reverse {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+.animate-marquee-reverse {
+  display: flex;
+  animation: marquee-reverse 45s linear infinite;
+  will-change: transform;
+}
+.animate-marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
 /* Aurora warm — fond animé newsletter */
 @keyframes aurora-warm {
   0%, 100% { background-position: 0% 60%; }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod/v4'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -14,7 +14,23 @@ import {
   Loader2,
   MessageCircle,
   ChevronDown,
+  Clock,
+  Navigation,
+  ExternalLink,
+  Globe,
+  HeadphonesIcon,
+  ShoppingBag,
+  Truck,
+  RotateCcw,
+  CreditCard,
+  Plus,
+  Minus,
+  HelpCircle,
 } from 'lucide-react'
+import { ProductImage } from '@/components/ui/product-image'
+import { getProductImagePaths } from '@/data/product-image-map'
+
+const CONTACT_HEADER_IMAGE = getProductImagePaths('prod-005', 'bijoux', 1)[0]
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -84,6 +100,8 @@ const contactInfos = [
 const faqCategories = [
   {
     category: 'Commandes',
+    icon: ShoppingBag,
+    color: 'text-gold bg-gold/10',
     items: [
       {
         question: 'Comment passer une commande ?',
@@ -99,6 +117,8 @@ const faqCategories = [
   },
   {
     category: 'Livraison',
+    icon: Truck,
+    color: 'text-caramel bg-caramel/10',
     items: [
       {
         question: 'Quels sont les délais de livraison ?',
@@ -114,6 +134,8 @@ const faqCategories = [
   },
   {
     category: 'Retours',
+    icon: RotateCcw,
+    color: 'text-copper bg-copper/10',
     items: [
       {
         question: 'Quelle est votre politique de retour ?',
@@ -129,6 +151,8 @@ const faqCategories = [
   },
   {
     category: 'Paiement',
+    icon: CreditCard,
+    color: 'text-blush bg-blush/10',
     items: [
       {
         question: 'Quels moyens de paiement acceptez-vous ?',
@@ -313,13 +337,212 @@ function ContactForm() {
   )
 }
 
+// ─── FAQ Section ─────────────────────────────────────────────────────────────
+function FAQSection() {
+  const [activeCategory, setActiveCategory] = useState(faqCategories[0].category)
+  const [openItem, setOpenItem] = useState<string | null>(null)
+
+  const current = faqCategories.find((c) => c.category === activeCategory)!
+  const totalQuestions = faqCategories.reduce((acc, c) => acc + c.items.length, 0)
+
+  return (
+    <section className="py-16 sm:py-24 bg-warm-white overflow-hidden">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+
+        {/* Header */}
+        <motion.div
+          className="text-center mb-12"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <span className="font-[family-name:var(--font-dm-sans)] text-sm tracking-[0.3em] uppercase text-gold font-semibold">
+            Besoin d&apos;aide ?
+          </span>
+          <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-text-dark mt-3">
+            Questions <span className="text-gold-gradient">Fréquentes</span>
+          </h2>
+          <p className="font-[family-name:var(--font-dm-sans)] text-text-mid mt-3 max-w-lg mx-auto">
+            {totalQuestions} réponses à vos questions les plus courantes
+          </p>
+          <div className="mt-5 flex items-center justify-center gap-3">
+            <div className="h-px w-12 bg-gradient-to-r from-transparent to-gold/40" />
+            <div className="w-1.5 h-1.5 rounded-full bg-gold" />
+            <div className="h-px w-12 bg-gradient-to-l from-transparent to-gold/40" />
+          </div>
+        </motion.div>
+
+        {/* Category tabs */}
+        <motion.div
+          className="flex flex-wrap justify-center gap-3 mb-10"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          {faqCategories.map((cat) => {
+            const Icon = cat.icon
+            const isActive = cat.category === activeCategory
+            return (
+              <button
+                key={cat.category}
+                onClick={() => { setActiveCategory(cat.category); setOpenItem(null) }}
+                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-full font-[family-name:var(--font-dm-sans)] text-sm font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-gold text-white shadow-lg shadow-gold/25'
+                    : 'bg-white border border-gold/20 text-text-mid hover:border-gold/50 hover:text-gold'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {cat.category}
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-0.5 ${
+                  isActive ? 'bg-white/20 text-white' : 'bg-gold/10 text-gold'
+                }`}>
+                  {cat.items.length}
+                </span>
+              </button>
+            )
+          })}
+        </motion.div>
+
+        {/* Questions */}
+        <motion.div
+          key={activeCategory}
+          className="space-y-3"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          {current.items.map((item, i) => {
+            const key = `${activeCategory}-${i}`
+            const isOpen = openItem === key
+            const Icon = current.icon
+
+            return (
+              <motion.div
+                key={key}
+                className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
+                  isOpen
+                    ? 'border-gold/40 bg-white shadow-md shadow-gold/8'
+                    : 'border-gold/10 bg-white hover:border-gold/30'
+                }`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.07 }}
+              >
+                <button
+                  className="w-full flex items-center gap-4 px-6 py-5 text-left"
+                  onClick={() => setOpenItem(isOpen ? null : key)}
+                >
+                  {/* Number */}
+                  <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-[family-name:var(--font-dm-sans)] transition-colors ${
+                    isOpen ? 'bg-gold text-white' : 'bg-gold/10 text-gold'
+                  }`}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+
+                  {/* Question */}
+                  <span className={`flex-1 font-[family-name:var(--font-dm-sans)] text-sm font-semibold transition-colors ${
+                    isOpen ? 'text-gold' : 'text-text-dark'
+                  }`}>
+                    {item.question}
+                  </span>
+
+                  {/* Toggle icon */}
+                  <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                    isOpen ? 'bg-gold/10 text-gold rotate-0' : 'bg-cream text-text-mid'
+                  }`}>
+                    {isOpen
+                      ? <Minus className="w-3.5 h-3.5" />
+                      : <Plus className="w-3.5 h-3.5" />
+                    }
+                  </span>
+                </button>
+
+                {/* Answer */}
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex items-start gap-4 px-6 pb-5">
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${current.color}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid leading-relaxed pt-1">
+                          {item.answer}
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )
+          })}
+        </motion.div>
+
+        {/* CTA bottom */}
+        <motion.div
+          className="mt-12 rounded-3xl bg-gradient-to-br from-gold/8 via-cream to-caramel/8 border border-gold/20 p-8 text-center"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4">
+            <HelpCircle className="w-6 h-6 text-gold" />
+          </div>
+          <h3 className="font-[family-name:var(--font-playfair)] text-xl font-bold text-text-dark">
+            Vous n&apos;avez pas trouvé votre réponse ?
+          </h3>
+          <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid mt-2 max-w-sm mx-auto">
+            Notre équipe répond en moins de 24h par email, ou en quelques minutes sur WhatsApp.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
+            <a
+              href="mailto:contact@tonomi.ml"
+              className="inline-flex items-center gap-2 btn-gold px-6 py-2.5 text-sm"
+            >
+              <Mail className="w-4 h-4" /> Envoyer un email
+            </a>
+            <a
+              href="https://wa.me/22375666853"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-[family-name:var(--font-dm-sans)] text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" /> WhatsApp
+            </a>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
 // ─── Main Contact Page ────────────────────────────────────────────────────────
 export default function ContactPage() {
   return (
     <div className="min-h-screen">
-      {/* ── Header ── */}
-      <section className="relative pt-24 pb-10 sm:pt-32 sm:pb-14 overflow-hidden">
-        <div className="absolute inset-0 particles-bg" />
+      {/* ── Hero ── */}
+      <section className="relative pt-36 pb-12 sm:pt-44 sm:pb-16 overflow-hidden">
+        <div className="absolute inset-0">
+          <ProductImage
+            src={CONTACT_HEADER_IMAGE}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black/75" />
+        </div>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <motion.div
             className="text-center"
@@ -327,15 +550,39 @@ export default function ContactPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           >
-            <span className="font-[family-name:var(--font-dm-sans)] text-sm tracking-[0.3em] uppercase text-gold font-semibold">
-              Parlons ensemble
-            </span>
-            <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl font-bold text-text-dark mt-3">
+            <motion.div
+              className="inline-flex items-center gap-2 bg-white/15 text-gold border border-white/20 backdrop-blur-sm px-5 py-2 rounded-full mb-6"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <HeadphonesIcon className="w-4 h-4" />
+              <span className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold tracking-wide uppercase">
+                Parlons ensemble
+              </span>
+            </motion.div>
+
+            <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
               Contactez-<span className="text-gold-gradient">nous</span>
             </h1>
-            <p className="font-[family-name:var(--font-dm-sans)] text-text-mid mt-4 max-w-md mx-auto">
-              Une question, une suggestion ou juste envie de discuter ? Nous sommes à votre écoute.
-            </p>
+
+            <motion.p
+              className="mt-4 font-[family-name:var(--font-dm-sans)] text-lg sm:text-xl text-gold font-semibold tracking-[0.15em] uppercase"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              Service client • Commandes • Support
+            </motion.p>
+
+            <motion.p
+              className="mt-4 font-[family-name:var(--font-dm-sans)] text-sm sm:text-base text-white/80 max-w-xl mx-auto leading-relaxed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              Une question, une suggestion ou juste envie de discuter ? Notre équipe est à votre écoute, chaque jour.
+            </motion.p>
           </motion.div>
         </div>
       </section>
@@ -453,115 +700,254 @@ export default function ContactPage() {
       </section>
 
       {/* ── FAQ Section ── */}
-      <section className="py-12 sm:py-16 bg-warm-white">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="text-center mb-10"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <span className="font-[family-name:var(--font-dm-sans)] text-sm tracking-[0.3em] uppercase text-gold font-semibold">
-              Besoin d&apos;aide ?
-            </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-text-dark mt-3">
-              Questions Fréquentes
-            </h2>
-          </motion.div>
+      <FAQSection />
 
-          <div className="space-y-6">
-            {faqCategories.map((cat, catIndex) => (
-              <motion.div
-                key={cat.category}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: catIndex * 0.1 }}
-              >
-                <h3 className="font-[family-name:var(--font-cormorant)] text-lg font-semibold text-gold mb-3 flex items-center gap-2">
-                  <ChevronDown className="w-4 h-4" />
-                  {cat.category}
-                </h3>
-                <Accordion type="single" collapsible className="glass-card warm-shadow px-4">
-                  {cat.items.map((item, i) => (
-                    <AccordionItem
-                      key={i}
-                      value={`${cat.category}-${i}`}
-                      className="border-gold/10"
-                    >
-                      <AccordionTrigger className="font-[family-name:var(--font-dm-sans)] text-sm font-medium text-text-dark hover:text-gold hover:no-underline">
-                        {item.question}
-                      </AccordionTrigger>
-                      <AccordionContent className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid leading-relaxed">
-                        {item.answer}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Map Placeholder ── */}
-      <section className="py-12 sm:py-16">
+      {/* ── Map Section ── */}
+      <section className="py-12 sm:py-20 bg-cream">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+          {/* Header row */}
           <motion.div
-            className="text-center mb-8"
+            className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <span className="font-[family-name:var(--font-dm-sans)] text-sm tracking-[0.3em] uppercase text-gold font-semibold">
-              Notre adresse
-            </span>
-            <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-text-dark mt-3">
-              Nous Trouver
-            </h2>
+            <div>
+              <span className="font-[family-name:var(--font-dm-sans)] text-sm tracking-[0.3em] uppercase text-gold font-semibold">
+                Notre adresse
+              </span>
+              <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl font-bold text-text-dark mt-2">
+                Nous <span className="text-gold-gradient">Trouver</span>
+              </h2>
+            </div>
+            <a
+              href="https://www.google.com/maps/search/Bamako+Mali"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 border border-gold/30 text-gold hover:bg-gold hover:text-white font-[family-name:var(--font-dm-sans)] text-sm font-medium px-5 py-2.5 rounded-xl transition-all duration-200 self-start sm:self-auto"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Ouvrir dans Maps
+            </a>
           </motion.div>
 
+          {/* Map + floating card */}
           <motion.div
-            className="relative rounded-3xl overflow-hidden warm-shadow-lg aspect-[21/9] bg-gradient-to-br from-beige via-gold/5 to-caramel/10"
-            initial={{ opacity: 0, scale: 0.98 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+            className="relative rounded-3xl overflow-hidden warm-shadow-lg"
+            style={{ height: '520px' }}
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.7 }}
           >
-            {/* Decorative map-like pattern */}
-            <div className="absolute inset-0 opacity-[0.04]">
-              <svg className="w-full h-full" viewBox="0 0 800 400" fill="none">
-                <line x1="0" y1="100" x2="800" y2="100" stroke="#D4AF6A" strokeWidth="1" />
-                <line x1="0" y1="200" x2="800" y2="200" stroke="#D4AF6A" strokeWidth="1" />
-                <line x1="0" y1="300" x2="800" y2="300" stroke="#D4AF6A" strokeWidth="1" />
-                <line x1="200" y1="0" x2="200" y2="400" stroke="#D4AF6A" strokeWidth="1" />
-                <line x1="400" y1="0" x2="400" y2="400" stroke="#D4AF6A" strokeWidth="1" />
-                <line x1="600" y1="0" x2="600" y2="400" stroke="#D4AF6A" strokeWidth="1" />
-                <circle cx="400" cy="200" r="40" stroke="#D4AF6A" strokeWidth="1" />
-                <circle cx="400" cy="200" r="80" stroke="#D4AF6A" strokeWidth="0.5" />
-                <circle cx="400" cy="200" r="120" stroke="#D4AF6A" strokeWidth="0.3" />
-              </svg>
-            </div>
+            {/* Google Maps iframe */}
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d252099.90397278476!2d-8.197259050000001!3d12.6391965!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xe51d0f0a02acb29%3A0x48de7b47b45d70c!2sBamako%2C%20Mali!5e0!3m2!1sfr!2sfr!4v1706000000000!5m2!1sfr!2sfr"
+              className="absolute inset-0 w-full h-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="TONOMI — Bamako, Mali"
+            />
 
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gold/20 flex items-center justify-center mb-3">
-                  <MapPin className="w-8 h-8 text-gold" />
+            {/* Subtle warm tint overlay */}
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/10 via-transparent to-transparent" />
+
+            {/* Floating info card */}
+            <motion.div
+              className="absolute top-5 left-5 bottom-5 w-72 hidden lg:flex flex-col"
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/60 flex flex-col h-full p-6">
+                {/* Brand header */}
+                <div className="flex items-center gap-3 pb-5 border-b border-gold/15">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-gold to-caramel flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-5 h-5 text-white fill-white/30" />
+                  </div>
+                  <div>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid uppercase tracking-[0.2em]">
+                      Boutique
+                    </p>
+                    <p className="font-[family-name:var(--font-playfair)] text-xl font-bold text-text-dark leading-tight">
+                      TONOMI
+                    </p>
+                  </div>
                 </div>
-                <h3 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-text-dark">
-                  Bamako, Mali
-                </h3>
-                <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid mt-1">
-                  Afrique de l&apos;Ouest
-                </p>
-              </div>
-            </div>
 
-            {/* Decorative circles */}
-            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-gold/5 rounded-full" />
-            <div className="absolute -top-8 -right-8 w-24 h-24 bg-caramel/5 rounded-full" />
+                {/* Info rows */}
+                <div className="flex-1 py-5 space-y-4">
+                  {[
+                    {
+                      icon: <MapPin className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />,
+                      label: 'Adresse',
+                      value: 'ACI 2000, Hamdallaye\nBamako, Mali',
+                    },
+                    {
+                      icon: <Clock className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />,
+                      label: 'Horaires',
+                      value: 'Lun – Sam : 9h00 – 18h00\nDimanche : Sur rendez-vous',
+                    },
+                    {
+                      icon: <Phone className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />,
+                      label: 'Téléphone',
+                      value: '+223 75 66 68 53',
+                      href: 'tel:+22375666853',
+                    },
+                    {
+                      icon: <Mail className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />,
+                      label: 'Email',
+                      value: 'contact@tonomi.ml',
+                      href: 'mailto:contact@tonomi.ml',
+                    },
+                    {
+                      icon: <Globe className="w-4 h-4 text-gold mt-0.5 flex-shrink-0" />,
+                      label: 'Zone',
+                      value: 'Afrique de l\'Ouest\nLivraison dans 11 pays',
+                    },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-start gap-3">
+                      {row.icon}
+                      <div className="min-w-0">
+                        <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid uppercase tracking-wider">
+                          {row.label}
+                        </p>
+                        {row.href ? (
+                          <a
+                            href={row.href}
+                            className="font-[family-name:var(--font-dm-sans)] text-sm font-medium text-text-dark hover:text-gold transition-colors leading-snug"
+                          >
+                            {row.value}
+                          </a>
+                        ) : (
+                          <p className="font-[family-name:var(--font-dm-sans)] text-sm font-medium text-text-dark leading-snug whitespace-pre-line">
+                            {row.value}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA buttons */}
+                <div className="pt-4 border-t border-gold/15 space-y-2">
+                  <a
+                    href="https://www.google.com/maps/dir/?api=1&destination=Bamako+Mali"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 btn-gold py-2.5 text-xs rounded-xl"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    Obtenir l&apos;itinéraire
+                  </a>
+                  <a
+                    href="https://wa.me/22375666853"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-2.5 text-xs rounded-xl font-[family-name:var(--font-dm-sans)] font-semibold transition-colors"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    WhatsApp Business
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Mobile: pin badge centered on map */}
+            <div className="lg:hidden absolute top-4 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 border border-gold/20">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-gold to-caramel flex items-center justify-center">
+                <MapPin className="w-3 h-3 text-white" />
+              </div>
+              <span className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
+                Bamako, Mali
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Mobile info strip */}
+          <div className="lg:hidden mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { icon: <Clock className="w-4 h-4 text-gold" />, label: 'Horaires', value: 'Lun–Sam 9h–18h' },
+              { icon: <Phone className="w-4 h-4 text-gold" />, label: 'Téléphone', value: '+223 75 66 68 53', href: 'tel:+22375666853' },
+            ].map((item) => (
+              <div key={item.label} className="glass-card p-4 flex items-center gap-3 warm-shadow">
+                <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
+                  {item.icon}
+                </div>
+                <div>
+                  <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid uppercase tracking-wider">{item.label}</p>
+                  {item.href ? (
+                    <a href={item.href} className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark hover:text-gold transition-colors">
+                      {item.value}
+                    </a>
+                  ) : (
+                    <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">{item.value}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            <a
+              href="https://www.google.com/maps/dir/?api=1&destination=Bamako+Mali"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="glass-card p-4 flex items-center gap-3 warm-shadow hover:border-gold/30 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
+                <Navigation className="w-4 h-4 text-gold" />
+              </div>
+              <div>
+                <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid uppercase tracking-wider">Itinéraire</p>
+                <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-gold">Google Maps →</p>
+              </div>
+            </a>
+
+            <a
+              href="https://wa.me/22375666853"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="glass-card p-4 flex items-center gap-3 warm-shadow bg-green-50/60 hover:bg-green-50 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-green-700 uppercase tracking-wider">WhatsApp</p>
+                <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-green-800">Écrire maintenant →</p>
+              </div>
+            </a>
+          </div>
+
+          {/* Bottom stats strip — desktop */}
+          <motion.div
+            className="hidden lg:grid grid-cols-3 gap-4 mt-6"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            {[
+              { icon: <MapPin className="w-4 h-4 text-gold" />, label: 'Localisation', value: 'ACI 2000, Hamdallaye — Bamako' },
+              { icon: <Clock className="w-4 h-4 text-gold" />, label: 'Horaires d\'ouverture', value: 'Lundi au Samedi · 9h00 – 18h00' },
+              { icon: <MessageCircle className="w-4 h-4 text-green-500" />, label: 'Support WhatsApp', value: 'Disponible 7j/7 · Réponse rapide' },
+            ].map((stat) => (
+              <div key={stat.label} className="glass-card px-5 py-4 flex items-center gap-3 warm-shadow">
+                <div className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center flex-shrink-0">
+                  {stat.icon}
+                </div>
+                <div>
+                  <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-text-mid uppercase tracking-wider">
+                    {stat.label}
+                  </p>
+                  <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
+                    {stat.value}
+                  </p>
+                </div>
+              </div>
+            ))}
           </motion.div>
         </div>
       </section>

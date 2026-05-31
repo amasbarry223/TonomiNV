@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, CheckCircle, MapPin,
   CreditCard, ShoppingBag, Smartphone, Banknote,
-  MessageCircle, Package, Copy, Check,
+  MessageCircle, Package, Copy, Check, Truck, Tag, Shield,
 } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
 import { useCustomerStore, PAYMENT_INFO, COUNTRIES, MALI_CITIES, getShippingCost, type PaymentMethod, type DeliveryAddress } from '@/stores/customer-store';
@@ -87,56 +87,122 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
 }
 
 function OrderSummary({ shipping }: { shipping: number }) {
-  const { items, getSubtotal, coupon, couponDiscount, getTotal } = useCartStore();
+  const { items, getSubtotal, coupon, couponDiscount } = useCartStore();
   const subtotal = getSubtotal();
-  const total = getTotal() + shipping;
+  const total = subtotal - couponDiscount + shipping;
+  const itemCount = items.reduce((acc, i) => acc + i.quantity, 0);
 
   return (
-    <div className="bg-white rounded-2xl border border-[#D4AF6A]/20 p-5 sticky top-24">
-      <h3 className="font-[family-name:var(--font-playfair)] text-lg font-semibold text-[#1a1a1a] mb-4">
-        Récapitulatif
-      </h3>
-      <div className="space-y-3 max-h-48 overflow-y-auto mb-4">
+    <div className="sticky top-24 rounded-2xl overflow-hidden border border-[#D4AF6A]/20 bg-white shadow-lg shadow-[#D4AF6A]/8">
+
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#D4AF6A]/12 via-[#D4AF6A]/6 to-transparent px-5 pt-5 pb-4 border-b border-[#D4AF6A]/12">
+        <div className="flex items-center justify-between">
+          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1a1a1a]">
+            Récapitulatif
+          </h3>
+          <span className="font-[family-name:var(--font-dm-sans)] text-xs font-semibold bg-[#D4AF6A]/15 text-[#D4AF6A] px-2.5 py-1 rounded-full">
+            {itemCount} article{itemCount > 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Items — no scroll */}
+      <div className="px-5 py-4 space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="flex gap-3">
-            <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center shrink-0">
-              <ShoppingBag size={16} className="text-stone-400" />
+          <div key={item.id} className="flex items-center gap-3">
+            {/* Quantity + icon */}
+            <div className="relative shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#D4AF6A]/10 to-[#C8956C]/10 border border-[#D4AF6A]/20 flex items-center justify-center">
+                <ShoppingBag size={15} className="text-[#D4AF6A]" />
+              </div>
+              {item.quantity > 1 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#D4AF6A] text-white text-[9px] font-bold flex items-center justify-center font-[family-name:var(--font-dm-sans)]">
+                  {item.quantity}
+                </span>
+              )}
             </div>
+
+            {/* Name + variant */}
             <div className="flex-1 min-w-0">
-              <p className="font-[family-name:var(--font-dm-sans)] text-sm text-[#1a1a1a] truncate font-medium">
+              <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-[#1a1a1a] leading-tight line-clamp-2">
                 {item.name}
-                {item.quantity > 1 && <span className="text-stone-400"> ×{item.quantity}</span>}
               </p>
-              <p className="text-xs text-stone-400 font-[family-name:var(--font-dm-sans)]">
-                {[item.color, item.size].filter(Boolean).join(' / ')}
-              </p>
+              {(item.color || item.size) && (
+                <p className="font-[family-name:var(--font-dm-sans)] text-[11px] text-stone-400 mt-0.5">
+                  {[item.color, item.size].filter(Boolean).join(' · ')}
+                </p>
+              )}
             </div>
-            <span className="text-sm font-semibold text-[#1a1a1a] shrink-0 font-[family-name:var(--font-dm-sans)]">
-              {formatPrice(item.price * item.quantity)}
-            </span>
+
+            {/* Price */}
+            <div className="shrink-0 text-right">
+              <p className="font-[family-name:var(--font-dm-sans)] text-sm font-bold text-[#1a1a1a]">
+                {formatPrice(item.price * item.quantity)}
+              </p>
+              {item.quantity > 1 && (
+                <p className="font-[family-name:var(--font-dm-sans)] text-[10px] text-stone-400">
+                  {formatPrice(item.price)} / u.
+                </p>
+              )}
+            </div>
           </div>
         ))}
       </div>
-      <div className="border-t border-stone-100 pt-3 space-y-2">
-        <div className="flex justify-between text-sm font-[family-name:var(--font-dm-sans)] text-stone-500">
-          <span>Sous-total</span>
-          <span>{formatPrice(subtotal)}</span>
-        </div>
-        {couponDiscount > 0 && (
-          <div className="flex justify-between text-sm font-[family-name:var(--font-dm-sans)] text-emerald-600">
-            <span>Réduction {coupon && `(${coupon})`}</span>
-            <span>-{formatPrice(couponDiscount)}</span>
+
+      {/* Totals */}
+      <div className="px-5 pb-5 space-y-0">
+        <div className="border-t border-dashed border-stone-100 pt-3 space-y-2.5">
+
+          <div className="flex items-center justify-between">
+            <span className="font-[family-name:var(--font-dm-sans)] text-sm text-stone-500 flex items-center gap-1.5">
+              <ShoppingBag size={13} className="text-stone-400" />
+              Sous-total
+            </span>
+            <span className="font-[family-name:var(--font-dm-sans)] text-sm text-[#1a1a1a] font-medium">
+              {formatPrice(subtotal)}
+            </span>
           </div>
-        )}
-        <div className="flex justify-between text-sm font-[family-name:var(--font-dm-sans)] text-stone-500">
-          <span>Livraison</span>
-          <span className={shipping === 0 ? 'text-emerald-600 font-medium' : ''}>
-            {shipping === 0 ? 'Gratuite' : formatPrice(shipping)}
+
+          {couponDiscount > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="font-[family-name:var(--font-dm-sans)] text-sm text-emerald-600 flex items-center gap-1.5">
+                <Tag size={13} />
+                Code {coupon && <span className="font-mono font-bold">{coupon}</span>}
+              </span>
+              <span className="font-[family-name:var(--font-dm-sans)] text-sm text-emerald-600 font-semibold">
+                −{formatPrice(couponDiscount)}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <span className="font-[family-name:var(--font-dm-sans)] text-sm text-stone-500 flex items-center gap-1.5">
+              <Truck size={13} className="text-stone-400" />
+              Livraison
+            </span>
+            <span className={`font-[family-name:var(--font-dm-sans)] text-sm font-medium ${shipping === 0 ? 'text-emerald-600' : 'text-[#1a1a1a]'}`}>
+              {shipping === 0 ? '🎉 Gratuite' : formatPrice(shipping)}
+            </span>
+          </div>
+        </div>
+
+        {/* Total row */}
+        <div className="mt-3 bg-gradient-to-r from-[#D4AF6A]/10 to-[#C8956C]/5 rounded-xl px-4 py-3.5 flex items-center justify-between border border-[#D4AF6A]/20">
+          <span className="font-[family-name:var(--font-playfair)] text-base font-bold text-[#1a1a1a]">
+            Total TTC
+          </span>
+          <span className="font-[family-name:var(--font-playfair)] text-xl font-bold text-[#D4AF6A]">
+            {formatPrice(total)}
           </span>
         </div>
-        <div className="flex justify-between font-[family-name:var(--font-playfair)] text-lg font-bold text-[#1a1a1a] border-t border-stone-100 pt-2">
-          <span>Total</span>
-          <span className="text-[#D4AF6A]">{formatPrice(total)}</span>
+
+        {/* Trust badge */}
+        <div className="mt-3 flex items-center justify-center gap-1.5 text-stone-400">
+          <Shield size={12} />
+          <span className="font-[family-name:var(--font-dm-sans)] text-[10px]">
+            Paiement 100% sécurisé
+          </span>
         </div>
       </div>
     </div>

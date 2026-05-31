@@ -10,11 +10,15 @@ import {
   Minus,
   Plus,
   ChevronRight,
+  ChevronLeft,
   Home,
   Maximize2,
   Truck,
   RefreshCcw,
   Shield,
+  PenLine,
+  X,
+  Send,
 } from 'lucide-react'
 import {
   Accordion,
@@ -139,6 +143,47 @@ function ProductDetail({ product }: { product: Product }) {
   const [lightboxIdx, setLightboxIdx] = useState(0)
   const imageRef = useRef<HTMLDivElement>(null)
   const ctaRef = useRef<HTMLDivElement>(null)
+  const similarRef = useRef<HTMLDivElement>(null)
+
+  function scrollSimilar(dir: 'left' | 'right') {
+    const el = similarRef.current
+    if (!el) return
+    el.scrollBy({ left: dir === 'right' ? 240 : -240, behavior: 'smooth' })
+  }
+
+  const [reviews, setReviews] = useState(mockReviews)
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewHover, setReviewHover] = useState(0)
+  const [reviewAuthor, setReviewAuthor] = useState('')
+  const [reviewLocation, setReviewLocation] = useState('')
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewSubmitted, setReviewSubmitted] = useState(false)
+
+  function handleReviewSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!reviewAuthor.trim() || !reviewComment.trim()) return
+    const now = new Date()
+    const date = now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+    setReviews((prev) => [
+      {
+        id: `r-${Date.now()}`,
+        author: reviewAuthor.trim(),
+        location: reviewLocation.trim() || 'Mali',
+        rating: reviewRating,
+        date,
+        comment: reviewComment.trim(),
+      },
+      ...prev,
+    ])
+    setReviewSubmitted(true)
+    setShowReviewForm(false)
+    setReviewAuthor('')
+    setReviewLocation('')
+    setReviewComment('')
+    setReviewRating(5)
+    setTimeout(() => setReviewSubmitted(false), 4000)
+  }
 
   useEffect(() => {
     const el = ctaRef.current
@@ -165,9 +210,9 @@ function ProductDetail({ product }: { product: Product }) {
 
   // Review stats
   const reviewStats = useMemo(() => {
-    const total = mockReviews.length
-    const avg = mockReviews.reduce((sum, r) => sum + r.rating, 0) / total
-    const countsByStar = mockReviews.reduce(
+    const total = reviews.length
+    const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / total
+    const countsByStar = reviews.reduce(
       (acc, r) => {
         acc[r.rating] = (acc[r.rating] ?? 0) + 1
         return acc
@@ -180,7 +225,7 @@ function ProductDetail({ product }: { product: Product }) {
       percent: ((countsByStar[star] ?? 0) / total) * 100,
     }))
     return { total, avg, distribution }
-  }, [])
+  }, [reviews])
 
   const handleAddToCart = () => {
     if (isOutOfStock) return
@@ -703,39 +748,152 @@ function ProductDetail({ product }: { product: Product }) {
                 ))}
               </div>
 
-              <button className="mt-6 w-full btn-gold px-6 py-2.5 text-xs">
-                Écrire un avis
+              {reviewSubmitted && (
+                <motion.p
+                  className="mt-4 font-[family-name:var(--font-dm-sans)] text-xs text-gold font-semibold text-center"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  Merci pour votre avis !
+                </motion.p>
+              )}
+
+              <button
+                className="mt-6 w-full btn-gold px-6 py-2.5 text-xs flex items-center justify-center gap-2"
+                onClick={() => setShowReviewForm((v) => !v)}
+              >
+                {showReviewForm ? <X className="w-3.5 h-3.5" /> : <PenLine className="w-3.5 h-3.5" />}
+                {showReviewForm ? 'Annuler' : 'Écrire un avis'}
               </button>
             </div>
 
             {/* Reviews List */}
-            <div className="lg:col-span-2 space-y-4 max-h-[500px] overflow-y-auto pr-2">
-              {mockReviews.map((review) => (
-                <motion.div
-                  key={review.id}
-                  className="glass-card p-5"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex items-start justify-between mb-2">
+            <div className="lg:col-span-2 space-y-4">
+              <AnimatePresence>
+                {showReviewForm && (
+                  <motion.form
+                    key="review-form"
+                    onSubmit={handleReviewSubmit}
+                    className="glass-card p-5 space-y-4"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <p className="font-[family-name:var(--font-playfair)] text-base font-bold text-text-dark">
+                      Votre avis
+                    </p>
+
+                    {/* Star Rating */}
                     <div>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
-                        {review.author}
-                      </p>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid/60">
-                        {review.location} · {review.date}
-                      </p>
+                      <label className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mb-1 block">
+                        Note *
+                      </label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setReviewRating(star)}
+                            onMouseEnter={() => setReviewHover(star)}
+                            onMouseLeave={() => setReviewHover(0)}
+                            className="focus:outline-none"
+                          >
+                            <Star
+                              className={`w-6 h-6 transition-colors ${
+                                star <= (reviewHover || reviewRating)
+                                  ? 'text-gold fill-gold'
+                                  : 'text-beige fill-beige'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-0.5">
-                      {renderStars(review.rating, 'w-3.5 h-3.5')}
+
+                    {/* Name + Location */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mb-1 block">
+                          Nom *
+                        </label>
+                        <input
+                          type="text"
+                          value={reviewAuthor}
+                          onChange={(e) => setReviewAuthor(e.target.value)}
+                          placeholder="Ex : Aminata D."
+                          required
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-gold/20 bg-warm-white focus:outline-none focus:border-gold font-[family-name:var(--font-dm-sans)] text-text-dark placeholder:text-text-mid/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mb-1 block">
+                          Ville
+                        </label>
+                        <input
+                          type="text"
+                          value={reviewLocation}
+                          onChange={(e) => setReviewLocation(e.target.value)}
+                          placeholder="Ex : Bamako"
+                          className="w-full px-3 py-2 text-sm rounded-lg border border-gold/20 bg-warm-white focus:outline-none focus:border-gold font-[family-name:var(--font-dm-sans)] text-text-dark placeholder:text-text-mid/40"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid leading-relaxed">
-                    {review.comment}
-                  </p>
-                </motion.div>
-              ))}
+
+                    {/* Comment */}
+                    <div>
+                      <label className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mb-1 block">
+                        Commentaire *
+                      </label>
+                      <textarea
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        placeholder="Partagez votre expérience avec ce produit…"
+                        required
+                        rows={3}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-gold/20 bg-warm-white focus:outline-none focus:border-gold font-[family-name:var(--font-dm-sans)] text-text-dark placeholder:text-text-mid/40 resize-none"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="btn-gold px-6 py-2.5 text-xs flex items-center gap-2"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Publier mon avis
+                    </button>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                {reviews.map((review) => (
+                  <motion.div
+                    key={review.id}
+                    className="glass-card p-5"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
+                          {review.author}
+                        </p>
+                        <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid/60">
+                          {review.location} · {review.date}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {renderStars(review.rating, 'w-3.5 h-3.5')}
+                      </div>
+                    </div>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-sm text-text-mid leading-relaxed">
+                      {review.comment}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </div>
         </motion.section>
@@ -747,10 +905,26 @@ function ProductDetail({ product }: { product: Product }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-text-dark mb-8">
-              Vous aimerez aussi
-            </h2>
-            <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-text-dark">
+                Vous aimerez aussi
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => scrollSimilar('left')}
+                  className="w-9 h-9 rounded-full border border-gold/30 flex items-center justify-center text-text-mid hover:bg-gold hover:text-white hover:border-gold transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => scrollSimilar('right')}
+                  className="w-9 h-9 rounded-full border border-gold/30 flex items-center justify-center text-text-mid hover:bg-gold hover:text-white hover:border-gold transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div ref={similarRef} className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
               {similarProducts.map((p) => (
                 <div key={p.id} className="flex-shrink-0 w-48 sm:w-56">
                   <ProductCard product={p} />

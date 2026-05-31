@@ -12,6 +12,10 @@ import {
   Globe,
   Heart,
 } from 'lucide-react'
+import { ProductImage } from '@/components/ui/product-image'
+import { getProductImagePaths } from '@/data/product-image-map'
+
+const ABOUT_HEADER_IMAGE = getProductImagePaths('prod-001', 'bijoux', 1)[0]
 
 // ─── Animated Counter ─────────────────────────────────────────────────────────
 function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
@@ -253,58 +257,61 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen">
       {/* ── Hero Section ── */}
-      <section className="relative pt-24 pb-16 sm:pt-32 sm:pb-24 overflow-hidden">
+      <section className="relative pt-36 pb-12 sm:pt-44 sm:pb-16 overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-r from-cream via-cream/95 to-cream/80" />
-          <div className="absolute inset-0 particles-bg" />
+          <ProductImage
+            src={ABOUT_HEADER_IMAGE}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/55 to-black/75" />
         </div>
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div
+            className="text-center"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+          >
             <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7 }}
+              className="inline-flex items-center gap-2 bg-white/15 text-gold border border-white/20 backdrop-blur-sm px-5 py-2 rounded-full mb-6"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <span className="font-[family-name:var(--font-dm-sans)] text-sm tracking-[0.3em] uppercase text-gold font-semibold">
+              <Sparkles className="w-4 h-4" />
+              <span className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold tracking-wide uppercase">
                 Qui sommes-nous
               </span>
-              <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl lg:text-6xl font-bold text-text-dark leading-tight mt-4">
-                Notre{' '}
-                <span className="text-gold-gradient">Histoire</span>
-              </h1>
-              <p className="font-[family-name:var(--font-dm-sans)] text-base sm:text-lg text-text-mid mt-6 leading-relaxed max-w-lg">
-                TONOMI Accessoires est née de la conviction que l&apos;élégance africaine
-                mérite d&apos;être célébrée. Nous créons des accessoires de mode qui
-                allient tradition malienne et modernité, pour sublimer la femme
-                d&apos;aujourd&apos;hui.
-              </p>
-              <p className="font-[family-name:var(--font-dm-sans)] text-base text-text-mid mt-4 leading-relaxed max-w-lg">
-                Chaque pièce raconte une histoire — celle des artisans du Mali, des
-                motifs bogolan, des nuits étoilées du Sahel. TONOMI, c&apos;est
-                l&apos;accessoire qui vous ressemble.
-              </p>
             </motion.div>
 
-            <motion.div
-              className="relative"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
+            <h1 className="font-[family-name:var(--font-playfair)] text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
+              Notre <span className="text-gold-gradient">Histoire</span>
+            </h1>
+
+            <motion.p
+              className="mt-4 font-[family-name:var(--font-dm-sans)] text-lg sm:text-xl text-gold font-semibold tracking-[0.15em] uppercase"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
             >
-              <div className="aspect-[4/5] rounded-3xl bg-gradient-to-br from-beige via-gold/10 to-caramel/10 warm-shadow-lg overflow-hidden relative">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <Sparkles className="w-16 h-16 text-gold/30 mx-auto mb-4" />
-                    <p className="font-[family-name:var(--font-cormorant)] text-xl text-text-mid/50 italic">
-                      L&apos;élégance africaine réinventée
-                    </p>
-                  </div>
-                </div>
-                <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-gold/10 rounded-full" />
-                <div className="absolute -top-4 -left-4 w-16 h-16 bg-caramel/10 rounded-full" />
-              </div>
-            </motion.div>
-          </div>
+              Élégance • Artisanat • Tradition Malienne
+            </motion.p>
+
+            <motion.p
+              className="mt-4 font-[family-name:var(--font-dm-sans)] text-sm sm:text-base text-white/80 max-w-xl mx-auto leading-relaxed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              TONOMI Accessoires est née de la conviction que l&apos;élégance africaine
+              mérite d&apos;être célébrée — une fusion de tradition malienne et de modernité.
+            </motion.p>
+          </motion.div>
         </div>
       </section>
 

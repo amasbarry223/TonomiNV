@@ -17,17 +17,15 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react'
+import Image from 'next/image'
 
-// World TopoJSON URL
-const geoUrl =
-  'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
+const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
-// ISO 3166-1 numeric codes for active countries
 interface CountryInfo {
   id: string
   name: string
   capital: string
-  flag: string
+  flagCode: string
   coordinates: [number, number]
   since: string
   status: 'actif' | 'en développement'
@@ -35,116 +33,12 @@ interface CountryInfo {
 }
 
 const activeCountries: CountryInfo[] = [
-  {
-    id: '466',
-    name: 'Mali',
-    capital: 'Bamako',
-    flag: '🇲🇱',
-    coordinates: [-7.99, 12.65],
-    since: '2019',
-    status: 'actif',
-    clients: '2000+',
-  },
-  {
-    id: '686',
-    name: 'Sénégal',
-    capital: 'Dakar',
-    flag: '🇸🇳',
-    coordinates: [-17.45, 14.69],
-    since: '2021',
-    status: 'actif',
-    clients: '800+',
-  },
-  {
-    id: '384',
-    name: "Côte d'Ivoire",
-    capital: 'Abidjan',
-    flag: '🇨🇮',
-    coordinates: [-5.55, 5.35],
-    since: '2022',
-    status: 'actif',
-    clients: '600+',
-  },
-  {
-    id: '854',
-    name: 'Burkina Faso',
-    capital: 'Ouagadougou',
-    flag: '🇧🇫',
-    coordinates: [-1.53, 12.37],
-    since: '2022',
-    status: 'actif',
-    clients: '400+',
-  },
-  {
-    id: '324',
-    name: 'Guinée',
-    capital: 'Conakry',
-    flag: '🇬🇳',
-    coordinates: [-13.68, 9.95],
-    since: '2023',
-    status: 'actif',
-    clients: '300+',
-  },
-  {
-    id: '562',
-    name: 'Niger',
-    capital: 'Niamey',
-    flag: '🇳🇪',
-    coordinates: [2.11, 13.51],
-    since: '2023',
-    status: 'actif',
-    clients: '250+',
-  },
-  {
-    id: '204',
-    name: 'Bénin',
-    capital: 'Cotonou',
-    flag: '🇧🇯',
-    coordinates: [2.32, 6.49],
-    since: '2024',
-    status: 'en développement',
-    clients: '100+',
-  },
-  {
-    id: '768',
-    name: 'Togo',
-    capital: 'Lomé',
-    flag: '🇹🇬',
-    coordinates: [1.22, 6.13],
-    since: '2024',
-    status: 'en développement',
-    clients: '100+',
-  },
-  {
-    id: '288',
-    name: 'Ghana',
-    capital: 'Accra',
-    flag: '🇬🇭',
-    coordinates: [-0.19, 5.56],
-    since: '2024',
-    status: 'en développement',
-    clients: '150+',
-  },
-  {
-    id: '504',
-    name: 'Maroc',
-    capital: 'Casablanca',
-    flag: '🇲🇦',
-    coordinates: [-7.59, 33.57],
-    since: '2023',
-    status: 'actif',
-    clients: '350+',
-  },
-  {
-    id: '250',
-    name: 'France',
-    capital: 'Paris',
-    flag: '🇫🇷',
-    coordinates: [2.35, 48.86],
-    since: '2024',
-    status: 'en développement',
-    clients: '50+',
-  },
+  { id: '466', name: 'Mali', capital: 'Bamako', flagCode: 'ml', coordinates: [-7.99, 12.65], since: '2019', status: 'actif', clients: '2 000+' },
+  { id: '686', name: 'Sénégal', capital: 'Dakar', flagCode: 'sn', coordinates: [-17.45, 14.69], since: '2021', status: 'actif', clients: '800+' },
+  { id: '384', name: "Côte d'Ivoire", capital: 'Abidjan', flagCode: 'ci', coordinates: [-5.55, 5.35], since: '2022', status: 'actif', clients: '600+' },
+  { id: '854', name: 'Burkina Faso', capital: 'Ouagadougou', flagCode: 'bf', coordinates: [-1.53, 12.37], since: '2022', status: 'actif', clients: '400+' },
+  { id: '324', name: 'Guinée', capital: 'Conakry', flagCode: 'gn', coordinates: [-13.68, 9.95], since: '2023', status: 'actif', clients: '300+' },
+  { id: '562', name: 'Niger', capital: 'Niamey', flagCode: 'ne', coordinates: [2.11, 13.51], since: '2023', status: 'actif', clients: '250+' },
 ]
 
 const activeIds = new Set(activeCountries.map((c) => c.id))
@@ -175,7 +69,6 @@ function buildGeographyStyle(isActive: boolean) {
 const MapGeography = memo(function MapGeography({
   geo,
   isActive,
-  isHovered,
   onMouseEnter,
   onMouseLeave,
   onMouseMove,
@@ -183,7 +76,6 @@ const MapGeography = memo(function MapGeography({
 }: {
   geo: { id: string; rsmKey: string; [key: string]: unknown }
   isActive: boolean
-  isHovered: boolean
   onMouseEnter: (geo: { id: string }) => void
   onMouseLeave: () => void
   onMouseMove: (e: React.MouseEvent) => void
@@ -202,15 +94,15 @@ const MapGeography = memo(function MapGeography({
         if (country) onSelectCountry(country)
       }}
       style={style}
-      tabIndex={isHovered ? 0 : -1}
+      tabIndex={-1}
     />
   )
 })
 
 const stats = [
-  { icon: Globe2, value: '11', label: 'Pays', description: 'présence internationale' },
-  { icon: Truck, value: '5000+', label: 'Livraisons', description: 'dans la sous-région' },
-  { icon: Users, value: '5000+', label: 'Clientes', description: 'satisfaites' },
+  { icon: Globe2, value: '6', label: 'Pays', description: 'présence internationale' },
+  { icon: Truck, value: '5 000+', label: 'Livraisons', description: 'dans la sous-région' },
+  { icon: Users, value: '5 000+', label: 'Clientes', description: 'satisfaites' },
 ]
 
 export default function PresenceSection() {
@@ -218,11 +110,9 @@ export default function PresenceSection() {
   const [selectedCountry, setSelectedCountry] = useState<CountryInfo | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
-  const handleGeographyMouseEnter = useCallback((geo: any) => {
+  const handleGeographyMouseEnter = useCallback((geo: { id: string }) => {
     const country = activeCountries.find((c) => c.id === geo.id)
-    if (country) {
-      setHoveredCountry(country)
-    }
+    if (country) setHoveredCountry(country)
   }, [])
 
   const handleGeographyMouseLeave = useCallback(() => {
@@ -239,14 +129,11 @@ export default function PresenceSection() {
     })
   }, [])
 
-  const handleMarkerClick = useCallback((country: CountryInfo) => {
-    setSelectedCountry(country)
-  }, [])
-
   return (
     <section className="py-16 sm:py-24 bg-cream overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+
+        {/* ── Header ── */}
         <motion.div
           className="text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
@@ -268,7 +155,7 @@ export default function PresenceSection() {
           </p>
         </motion.div>
 
-        {/* Stats Bar */}
+        {/* ── Stats Bar ── */}
         <motion.div
           className="grid grid-cols-3 gap-4 mb-10"
           initial={{ opacity: 0, y: 20 }}
@@ -300,9 +187,10 @@ export default function PresenceSection() {
           ))}
         </motion.div>
 
-        {/* Main Content - Map + Country List */}
+        {/* ── Map + Country List ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          {/* Interactive Map */}
+
+          {/* Map */}
           <motion.div
             className="lg:col-span-2"
             initial={{ opacity: 0, x: -30 }}
@@ -313,15 +201,8 @@ export default function PresenceSection() {
             <div className="glass-card p-2 sm:p-4 warm-shadow-lg">
               <ComposableMap
                 projection="geoAzimuthalEqualArea"
-                projectionConfig={{
-                  rotate: [-10, -10, 0],
-                  center: [5, 5],
-                  scale: 420,
-                }}
-                style={{
-                  width: '100%',
-                  height: 'auto',
-                }}
+                projectionConfig={{ rotate: [-10, -10, 0], center: [5, 5], scale: 420 }}
+                style={{ width: '100%', height: 'auto' }}
               >
                 <ZoomableGroup zoom={1} maxZoom={4} minZoom={0.8}>
                   <Geographies geography={geoUrl}>
@@ -331,7 +212,6 @@ export default function PresenceSection() {
                           key={geo.rsmKey}
                           geo={geo}
                           isActive={activeIds.has(geo.id)}
-                          isHovered={hoveredCountry?.id === geo.id}
                           onMouseEnter={handleGeographyMouseEnter}
                           onMouseLeave={handleGeographyMouseLeave}
                           onMouseMove={handleGeographyMouseMove}
@@ -341,73 +221,37 @@ export default function PresenceSection() {
                     }
                   </Geographies>
 
-                  {/* Markers for active countries */}
                   {activeCountries.map((country) => (
                     <Marker
                       key={country.id}
                       coordinates={country.coordinates}
-                      onClick={() => handleMarkerClick(country)}
+                      onClick={() => setSelectedCountry(country)}
                     >
                       <g className="cursor-pointer">
-                        {/* Pulse ring */}
-                        <circle
-                          r={8}
-                          fill="rgba(212, 175, 106, 0.2)"
-                          stroke="none"
-                        >
-                          <animate
-                            attributeName="r"
-                            from="4"
-                            to="12"
-                            dur="2s"
-                            repeatCount="indefinite"
-                          />
-                          <animate
-                            attributeName="opacity"
-                            from="0.6"
-                            to="0"
-                            dur="2s"
-                            repeatCount="indefinite"
-                          />
+                        <circle r={8} fill="rgba(212,175,106,0.2)" stroke="none">
+                          <animate attributeName="r" from="4" to="12" dur="2s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" from="0.6" to="0" dur="2s" repeatCount="indefinite" />
                         </circle>
-                        {/* Outer dot */}
-                        <circle
-                          r={4}
-                          fill={country.status === 'actif' ? '#D4AF6A' : '#C8956C'}
-                          stroke="#FFFFFF"
-                          strokeWidth={1.5}
-                          className="drop-shadow-sm"
-                        />
-                        {/* Inner dot */}
-                        <circle
-                          r={1.5}
-                          fill="#FFFFFF"
-                        />
+                        <circle r={4} fill={country.status === 'actif' ? '#D4AF6A' : '#C8956C'} stroke="#FFFFFF" strokeWidth={1.5} />
+                        <circle r={1.5} fill="#FFFFFF" />
                       </g>
                     </Marker>
                   ))}
                 </ZoomableGroup>
               </ComposableMap>
 
-              {/* Map Legend */}
               <div className="flex items-center justify-center gap-6 mt-3 pb-1">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-gold" />
-                  <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-                    Pays actifs
-                  </span>
+                  <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">Pays actifs</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-caramel" />
-                  <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-                    En développement
-                  </span>
+                  <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">En développement</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-beige" />
-                  <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-                    Prochainement
-                  </span>
+                  <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">Prochainement</span>
                 </div>
               </div>
             </div>
@@ -415,7 +259,7 @@ export default function PresenceSection() {
 
           {/* Country List */}
           <motion.div
-            className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar"
+            className="space-y-2 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar"
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
@@ -427,7 +271,7 @@ export default function PresenceSection() {
             {activeCountries.map((country, index) => (
               <motion.button
                 key={country.id}
-                className="w-full text-left glass-card p-4 warm-shadow hover:warm-shadow-lg transition-all duration-300 group"
+                className="w-full text-left glass-card p-3 warm-shadow hover:warm-shadow-lg transition-all duration-300 group"
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -436,7 +280,17 @@ export default function PresenceSection() {
                 onClick={() => setSelectedCountry(country)}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{country.flag}</span>
+                  {/* Drapeau réel */}
+                  <div className="flex-shrink-0">
+                    <Image
+                      src={`https://flagcdn.com/w40/${country.flagCode}.png`}
+                      alt={`Drapeau ${country.name}`}
+                      width={32}
+                      height={22}
+                      className="rounded object-cover shadow-sm"
+                      unoptimized
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark truncate">
@@ -444,7 +298,7 @@ export default function PresenceSection() {
                       </p>
                       <ChevronRight className="w-4 h-4 text-gold opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-0.5">
                       <MapPin className="w-3 h-3 text-gold flex-shrink-0" />
                       <span className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid truncate">
                         {country.capital}
@@ -465,131 +319,123 @@ export default function PresenceSection() {
             ))}
           </motion.div>
         </div>
+      </div>
 
-        {/* Hover Tooltip */}
-        {hoveredCountry && tooltipPos && (
-          <div
-            className="fixed z-50 pointer-events-none"
-            style={{
-              left: tooltipPos.x + 16,
-              top: tooltipPos.y - 16,
-            }}
-          >
-            <div className="glass-card px-4 py-3 warm-shadow bg-white/90">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{hoveredCountry.flag}</span>
-                <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
-                  {hoveredCountry.name}
-                </p>
-              </div>
-              <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid mt-1">
+      {/* ── Hover Tooltip ── */}
+      {hoveredCountry && tooltipPos && (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{ left: tooltipPos.x + 16, top: tooltipPos.y - 16 }}
+        >
+          <div className="glass-card px-4 py-3 warm-shadow bg-white/90 flex items-center gap-3">
+            <Image
+              src={`https://flagcdn.com/w40/${hoveredCountry.flagCode}.png`}
+              alt={hoveredCountry.name}
+              width={28}
+              height={19}
+              className="rounded object-cover shadow-sm"
+              unoptimized
+            />
+            <div>
+              <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
+                {hoveredCountry.name}
+              </p>
+              <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
                 {hoveredCountry.capital} · {hoveredCountry.clients} clientes
               </p>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Country Detail Modal */}
-        <AnimatePresence>
-          {selectedCountry && (
+      {/* ── Country Detail Modal ── */}
+      <AnimatePresence>
+        {selectedCountry && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <motion.div
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-text-dark/40 backdrop-blur-sm"
+              onClick={() => setSelectedCountry(null)}
+            />
+            <motion.div
+              className="relative glass-card p-6 sm:p-8 warm-shadow-lg bg-white max-w-md w-full"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             >
-              {/* Backdrop */}
-              <motion.div
-                className="absolute inset-0 bg-text-dark/40 backdrop-blur-sm"
+              <button
                 onClick={() => setSelectedCountry(null)}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              />
-
-              {/* Modal */}
-              <motion.div
-                className="relative glass-card p-6 sm:p-8 warm-shadow-lg bg-white max-w-md w-full"
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-beige/60 flex items-center justify-center hover:bg-beige transition-colors"
               >
+                <X className="w-4 h-4 text-text-mid" />
+              </button>
+
+              <div className="text-center">
+                <div className="flex justify-center mb-3">
+                  <Image
+                    src={`https://flagcdn.com/w160/${selectedCountry.flagCode}.png`}
+                    alt={`Drapeau ${selectedCountry.name}`}
+                    width={80}
+                    height={54}
+                    className="rounded-lg shadow-md object-cover"
+                    unoptimized
+                  />
+                </div>
+                <h3 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-text-dark mt-2">
+                  {selectedCountry.name}
+                </h3>
+                <span
+                  className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-[family-name:var(--font-dm-sans)] font-medium ${
+                    selectedCountry.status === 'actif'
+                      ? 'bg-gold/15 text-gold'
+                      : 'bg-caramel/15 text-caramel'
+                  }`}
+                >
+                  {selectedCountry.status === 'actif' ? '✓ Actif' : '◜ En développement'}
+                </span>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-cream/60 rounded-xl">
+                  <MapPin className="w-5 h-5 text-gold flex-shrink-0" />
+                  <div>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">Capitale</p>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">{selectedCountry.capital}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-cream/60 rounded-xl">
+                  <Users className="w-5 h-5 text-gold flex-shrink-0" />
+                  <div>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">Clientes</p>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">{selectedCountry.clients} clientes satisfaites</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-cream/60 rounded-xl">
+                  <Truck className="w-5 h-5 text-gold flex-shrink-0" />
+                  <div>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">Présence depuis</p>
+                    <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">{selectedCountry.since}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 text-center">
                 <button
                   onClick={() => setSelectedCountry(null)}
-                  className="absolute top-4 right-4 w-8 h-8 rounded-full bg-beige/60 flex items-center justify-center hover:bg-beige transition-colors"
-                  aria-label="Fermer"
+                  className="btn-gold px-6 py-2.5 font-[family-name:var(--font-dm-sans)] text-xs"
                 >
-                  <X className="w-4 h-4 text-text-mid" />
+                  Fermer
                 </button>
-
-                <div className="text-center">
-                  <span className="text-5xl">{selectedCountry.flag}</span>
-                  <h3 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-text-dark mt-4">
-                    {selectedCountry.name}
-                  </h3>
-                  <span
-                    className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-[family-name:var(--font-dm-sans)] font-medium ${
-                      selectedCountry.status === 'actif'
-                        ? 'bg-gold/15 text-gold'
-                        : 'bg-caramel/15 text-caramel'
-                    }`}
-                  >
-                    {selectedCountry.status === 'actif' ? '✓ Actif' : '◜ En développement'}
-                  </span>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-cream/60 rounded-xl">
-                    <MapPin className="w-5 h-5 text-gold flex-shrink-0" />
-                    <div>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-                        Capitale
-                      </p>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
-                        {selectedCountry.capital}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 bg-cream/60 rounded-xl">
-                    <Users className="w-5 h-5 text-gold flex-shrink-0" />
-                    <div>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-                        Clientes
-                      </p>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
-                        {selectedCountry.clients} clientes satisfaites
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-3 bg-cream/60 rounded-xl">
-                    <Truck className="w-5 h-5 text-gold flex-shrink-0" />
-                    <div>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-xs text-text-mid">
-                        Présence depuis
-                      </p>
-                      <p className="font-[family-name:var(--font-dm-sans)] text-sm font-semibold text-text-dark">
-                        {selectedCountry.since}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={() => setSelectedCountry(null)}
-                    className="btn-gold px-6 py-2.5 font-[family-name:var(--font-dm-sans)] text-xs"
-                  >
-                    Fermer
-                  </button>
-                </div>
-              </motion.div>
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
