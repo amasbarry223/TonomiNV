@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CartItem } from '@/stores/cart-store';
+import { useAdminLogsStore } from '@/stores/admin-logs-store'
+import { useAdminStore } from '@/stores/admin-store'
 
 export interface DeliveryAddress {
   id: string;
@@ -41,7 +43,7 @@ export interface CustomerOrder {
   createdAt: string;
 }
 
-interface Customer {
+export interface Customer {
   id: string;
   firstName: string;
   lastName: string;
@@ -84,6 +86,7 @@ interface CustomerState {
   deleteAddress: (id: string) => void;
   setDefaultAddress: (id: string) => void;
   updateOrderStatus: (id: string, status: CustomerOrderStatus) => void;
+  loadDemoData: (customers: Customer[], orders: CustomerOrder[]) => void;
 }
 
 function generateOrderNumber(): string {
@@ -171,9 +174,23 @@ export const useCustomerStore = create<CustomerState>()(
         })),
 
       updateOrderStatus: (id, status) =>
-        set((s) => ({
-          orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)),
-        })),
+        set((s) => {
+          const before = s.orders.find((o) => o.id === id)
+          const actor = useAdminStore.getState()
+          useAdminLogsStore.getState().append({
+            action: 'status_change',
+            entityType: 'order',
+            entityId: id,
+            summary: `Statut commande: ${before?.number ?? id} → ${status}`,
+            actorUserId: actor.currentUserId ?? undefined,
+            actorEmail: actor.currentUserEmail ?? undefined,
+            metadata: { from: before?.status, to: status },
+          })
+          return { orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)) }
+        }),
+
+      loadDemoData: (customers, orders) =>
+        set({ customers, orders }),
     }),
     { name: 'tonomi-customer' }
   )

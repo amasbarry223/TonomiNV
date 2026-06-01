@@ -1,4 +1,7 @@
 import { assignCoherentProductImages } from './product-image-map'
+import type { SizeGuideRow } from '@/lib/product-content'
+
+export type { SizeGuideRow }
 
 export interface Product {
   id: string;
@@ -18,6 +21,8 @@ export interface Product {
   isNew: boolean;
   isBestSeller: boolean;
   material: string;
+  careTips?: string[];
+  sizeGuide?: SizeGuideRow[];
 }
 
 const catalogProducts: Product[] = [

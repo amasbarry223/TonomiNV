@@ -105,7 +105,7 @@ export default function CartDrawer() {
       <Sheet open={isOpen} onOpenChange={setCartOpen}>
         <SheetContent
           side="right"
-          className="w-full sm:max-w-md bg-cream border-l border-gold/20 flex flex-col p-0"
+          className="w-full sm:max-w-md bg-cream border-l border-gold/20 flex flex-col p-0 h-dvh max-h-dvh min-h-0"
         >
           {/* Header */}
           <SheetHeader className="p-5 pb-3">

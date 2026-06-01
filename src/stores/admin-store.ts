@@ -1,8 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-
-const ADMIN_EMAIL = 'admin@tonomi.com'
-const ADMIN_PASSWORD = 'tonomi2024'
+import { useAdminUsersStore } from '@/stores/admin-users-store'
+import { useAdminLogsStore } from '@/stores/admin-logs-store'
 
 export interface HeroSlide {
   id: string
@@ -27,6 +26,8 @@ const DEFAULT_SLIDES: HeroSlide[] = [
 
 interface AdminStore {
   isAuthenticated: boolean
+  currentUserId: string | null
+  currentUserEmail: string | null
   login: (email: string, password: string) => { success: boolean; error?: string }
   logout: () => void
   heroSlides: HeroSlide[]
@@ -39,14 +40,58 @@ export const useAdminStore = create<AdminStore>()(
   persist(
     (set) => ({
       isAuthenticated: false,
+      currentUserId: null,
+      currentUserEmail: null,
       login: (email, password) => {
-        if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-          set({ isAuthenticated: true })
-          return { success: true }
+        const normalized = email.trim().toLowerCase()
+        const user = useAdminUsersStore
+          .getState()
+          .users.find((u) => u.email.toLowerCase() === normalized)
+
+        if (!user || user.password !== password) {
+          useAdminLogsStore.getState().append({
+            action: 'login_failed',
+            entityType: 'auth',
+            summary: `Échec de connexion pour ${normalized}`,
+            actorEmail: normalized,
+          })
+          return { success: false, error: 'Email ou mot de passe incorrect.' }
         }
-        return { success: false, error: 'Email ou mot de passe incorrect.' }
+        if (!user.isActive) {
+          useAdminLogsStore.getState().append({
+            action: 'login_failed',
+            entityType: 'auth',
+            summary: `Connexion refusée (compte désactivé) pour ${normalized}`,
+            actorEmail: normalized,
+          })
+          return { success: false, error: 'Compte désactivé.' }
+        }
+
+        const at = new Date().toISOString()
+        useAdminUsersStore.getState().setLastLogin(user.id, at)
+        set({ isAuthenticated: true, currentUserId: user.id, currentUserEmail: user.email })
+        useAdminLogsStore.getState().append({
+          action: 'login_success',
+          entityType: 'auth',
+          summary: `Connexion réussie (${user.email})`,
+          actorUserId: user.id,
+          actorEmail: user.email,
+        })
+        return { success: true }
       },
-      logout: () => set({ isAuthenticated: false }),
+      logout: () =>
+        set((s) => {
+          if (s.currentUserEmail) {
+            useAdminLogsStore.getState().append({
+              action: 'logout',
+              entityType: 'auth',
+              summary: `Déconnexion (${s.currentUserEmail})`,
+              actorUserId: s.currentUserId ?? undefined,
+              actorEmail: s.currentUserEmail,
+            })
+          }
+          return { isAuthenticated: false, currentUserId: null, currentUserEmail: null }
+        }),
       heroSlides: DEFAULT_SLIDES,
       setHeroSlides: (heroSlides) => set({ heroSlides }),
       updateHeroSlide: (id, data) =>

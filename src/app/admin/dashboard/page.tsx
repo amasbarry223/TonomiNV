@@ -1,27 +1,97 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import AdminLayout from '@/components/admin/AdminLayout'
 import { useCustomerStore, ORDER_STATUS_LABELS } from '@/stores/customer-store'
 import { useAdminProductsStore } from '@/stores/admin-products-store'
 import { promoCodes } from '@/data/promos'
+import { seedCustomers, seedOrders } from '@/data/seed'
+import { getProductById } from '@/data/products'
 import {
   ShoppingCart, Package, TrendingUp, Tag,
-  Clock, CheckCircle, AlertCircle, ArrowRight, BarChart3,
+  Clock, CheckCircle, ArrowRight,
+  ArrowUpRight, ArrowDownRight, Sparkles, Users,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/product-display'
+import { toast } from 'sonner'
 
-// ── Area Chart ────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// STATUS CONFIG
+// ─────────────────────────────────────────────────────────────
+const STATUS_CFG: Record<string, { dot: string; text: string }> = {
+  pending:    { dot: '#F59E0B', text: 'text-yellow-600'  },
+  confirmed:  { dot: '#3B82F6', text: 'text-blue-600'    },
+  processing: { dot: '#8B5CF6', text: 'text-purple-600'  },
+  shipped:    { dot: '#6366F1', text: 'text-indigo-600'  },
+  delivered:  { dot: '#10B981', text: 'text-emerald-600' },
+  cancelled:  { dot: '#EF4444', text: 'text-red-500'     },
+}
+
+// ─────────────────────────────────────────────────────────────
+// TREND BADGE
+// ─────────────────────────────────────────────────────────────
+function TrendBadge({ current, previous }: { current: number; previous: number }) {
+  if (!previous || current === previous) return null
+  const pct = Math.round(((current - previous) / previous) * 100)
+  const up = pct > 0
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+      up ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'
+    }`}>
+      {up ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+      {up ? '+' : ''}{pct}%
+    </span>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// SPARKLINE
+// ─────────────────────────────────────────────────────────────
+function Sparkline({ values, color = '#D4AF6A' }: { values: number[]; color?: string }) {
+  if (values.length < 2) return null
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = max - min || 1
+  const W = 72, H = 28
+  const pts = values.map((v, i) => ({
+    x: (i / (values.length - 1)) * W,
+    y: H - ((v - min) / range) * H * 0.85 - H * 0.075,
+  }))
+  const path = pts.reduce((p, pt, i) => {
+    if (i === 0) return `M${pt.x.toFixed(1)},${pt.y.toFixed(1)}`
+    const prev = pts[i - 1]
+    const cx = (prev.x + pt.x) / 2
+    return `${p} C${cx.toFixed(1)},${prev.y.toFixed(1)} ${cx.toFixed(1)},${pt.y.toFixed(1)} ${pt.x.toFixed(1)},${pt.y.toFixed(1)}`
+  }, '')
+  const area = `${path} L${pts[pts.length - 1].x},${H} L${pts[0].x},${H} Z`
+  const gid = `sg${color.replace('#', '')}`
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: 72, height: 28 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`} />
+      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// AREA CHART
+// ─────────────────────────────────────────────────────────────
 function AreaChart({ data, color = '#D4AF6A' }: {
   data: { label: string; value: number; count: number }[]
   color?: string
 }) {
-  const W = 560, H = 110
-  const PAD = { t: 10, r: 16, b: 28, l: 50 }
+  const W = 640, H = 130
+  const PAD = { t: 12, r: 20, b: 32, l: 56 }
   const iW = W - PAD.l - PAD.r
   const iH = H - PAD.t - PAD.b
-  const max = Math.max(...data.map((d) => d.value), 1)
+  const max = Math.max(...data.map(d => d.value), 1)
 
   const pts = data.map((d, i) => ({
     x: PAD.l + (i / Math.max(data.length - 1, 1)) * iW,
@@ -29,58 +99,57 @@ function AreaChart({ data, color = '#D4AF6A' }: {
     ...d,
   }))
 
-  // Smooth cubic bezier
   const line = pts.reduce((p, pt, i) => {
     if (i === 0) return `M${pt.x},${pt.y}`
     const prev = pts[i - 1]
     const cx = (prev.x + pt.x) / 2
     return `${p} C${cx},${prev.y} ${cx},${pt.y} ${pt.x},${pt.y}`
   }, '')
-
   const area = `${line} L${pts[pts.length - 1].x},${PAD.t + iH} L${pts[0].x},${PAD.t + iH} Z`
 
-  // Y-axis ticks (4 levels)
-  const yTicks = [0, 0.33, 0.66, 1].map((t) => ({
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => ({
     y: PAD.t + iH - t * iH,
     val: Math.round(max * t),
   }))
 
+  const step = Math.max(1, Math.ceil(data.length / 8))
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ overflow: 'visible' }}>
       <defs>
-        <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+        <linearGradient id="areag" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
 
-      {/* Grid lines */}
-      {yTicks.map((t) => (
-        <g key={t.val}>
-          <line x1={PAD.l} y1={t.y} x2={W - PAD.r} y2={t.y} stroke="#f1f5f9" strokeWidth="1" />
-          <text x={PAD.l - 6} y={t.y + 3.5} textAnchor="end" fontSize="8" fill="#94a3b8">
-            {t.val >= 1000 ? `${Math.round(t.val / 1000)}k` : t.val}
+      {yTicks.map((t, i) => (
+        <g key={i}>
+          <line x1={PAD.l} y1={t.y} x2={W - PAD.r} y2={t.y}
+            stroke={i === 0 ? '#e2e8f0' : '#f1f5f9'}
+            strokeWidth={i === 0 ? 1 : 0.5}
+            strokeDasharray={i > 0 ? '3 3' : undefined} />
+          <text x={PAD.l - 8} y={t.y + 4} textAnchor="end" fontSize="8.5" fill="#cbd5e1">
+            {t.val === 0 ? '0' : t.val >= 1000 ? `${(t.val / 1000).toFixed(0)}k` : t.val}
           </text>
         </g>
       ))}
 
-      {/* Area + Line */}
-      <path d={area} fill="url(#ag)" />
-      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <path d={area} fill="url(#areag)" />
+      <path d={line} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" />
 
-      {/* Points */}
       {pts.map((p, i) => (
         <g key={i}>
-          <circle cx={p.x} cy={p.y} r="3.5" fill="white" stroke={color} strokeWidth="2" />
-          {/* Tooltip on hover using title */}
-          <title>{p.label}: {formatPrice(p.value)} ({p.count} cmd)</title>
-          <circle cx={p.x} cy={p.y} r="8" fill="transparent" />
+          <circle cx={p.x} cy={p.y} r={p.value > 0 ? 3.5 : 2}
+            fill={p.value > 0 ? 'white' : '#f1f5f9'}
+            stroke={p.value > 0 ? color : '#e2e8f0'} strokeWidth="2" />
+          <title>{p.label} : {formatPrice(p.value)} ({p.count} cmde{p.count > 1 ? 's' : ''})</title>
+          <circle cx={p.x} cy={p.y} r="10" fill="transparent" />
         </g>
       ))}
 
-      {/* X labels */}
-      {pts.map((p, i) => (
-        <text key={i} x={p.x} y={H - 4} textAnchor="middle" fontSize="9" fill="#94a3b8">
+      {pts.map((p, i) => i % step === 0 && (
+        <text key={i} x={p.x} y={H - 6} textAnchor="middle" fontSize="8.5" fill="#94a3b8">
           {p.label}
         </text>
       ))}
@@ -88,65 +157,72 @@ function AreaChart({ data, color = '#D4AF6A' }: {
   )
 }
 
-// ── Sparkline ─────────────────────────────────────────────────────────────────
-function Sparkline({ values, color = '#D4AF6A' }: { values: number[]; color?: string }) {
-  if (values.length < 2) return null
-  const max = Math.max(...values, 1)
-  const W = 64, H = 24
-  const pts = values.map((v, i) => ({
-    x: (i / (values.length - 1)) * W,
-    y: H - (v / max) * H,
-  }))
-  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-16 h-6">
-      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" opacity="0.7" />
-    </svg>
-  )
-}
-
-// ── Donut Chart ───────────────────────────────────────────────────────────────
-function MiniDonut({ segments }: { segments: { label: string; value: number; color: string }[] }) {
+// ─────────────────────────────────────────────────────────────
+// STATUS DONUT — redesigné
+// ─────────────────────────────────────────────────────────────
+function StatusDonut({ segments }: {
+  segments: { key: string; label: string; value: number; color: string }[]
+}) {
   const total = segments.reduce((s, d) => s + d.value, 0)
   if (total === 0) return (
-    <div className="flex items-center justify-center h-20 text-slate-400 text-xs">Aucune donnée</div>
+    <p className="text-sm text-slate-300 text-center py-8">Aucune commande</p>
   )
 
-  let angle = -90
-  const r = 28, cx = 36, cy = 36, stroke = 14
+  const r = 46, cx = 60, cy = 60, stroke = 18
+  const arcs = segments.reduce<{
+    angle: number
+    arcs: { key: string; label: string; value: number; color: string; pct: number; path: string }[]
+  }>(
+    (state, seg) => {
+      const pct = seg.value / total
+      const sweep = pct * 359.99
+      const startRad = (state.angle * Math.PI) / 180
+      const endRad = ((state.angle + sweep) * Math.PI) / 180
+      const largeArc = sweep > 180 ? 1 : 0
+      const x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad)
+      const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad)
 
-  const arcs = segments.map((seg) => {
-    const pct = seg.value / total
-    const sweep = pct * 360
-    const startRad = (angle * Math.PI) / 180
-    angle += sweep
-    const endRad = (angle * Math.PI) / 180
-    const largeArc = sweep > 180 ? 1 : 0
-    const x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad)
-    const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad)
-    return { path: `M${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2}`, ...seg, pct }
-  })
+      return {
+        angle: state.angle + sweep,
+        arcs: [
+          ...state.arcs,
+          { ...seg, pct, path: `M${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2}` },
+        ],
+      }
+    },
+    { angle: -90, arcs: [] }
+  ).arcs
 
   return (
-    <div className="flex items-center gap-4">
-      <svg viewBox="0 0 72 72" className="w-16 h-16 shrink-0">
-        {arcs.map((a) => (
-          <path key={a.label} d={a.path} fill="none" stroke={a.color}
-            strokeWidth={stroke} strokeLinecap="round">
-            <title>{a.label}: {a.value}</title>
-          </path>
-        ))}
-        <circle cx={cx} cy={cy} r={r - stroke / 2 - 2} fill="white" />
-        <text x={cx} y={cy + 4} textAnchor="middle" fontSize="10" fontWeight="700" fill="#1e293b">
-          {total}
-        </text>
-      </svg>
-      <div className="space-y-1.5 min-w-0">
-        {segments.slice(0, 4).map((s) => (
-          <div key={s.label} className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-            <span className="text-[10px] text-slate-500 truncate">{s.label}</span>
-            <span className="text-[10px] font-bold text-slate-700 ml-auto">{s.value}</span>
+    <div className="space-y-4">
+      {/* Donut centré */}
+      <div className="flex justify-center">
+        <svg viewBox="0 0 120 120" className="w-32 h-32">
+          {arcs.map(a => (
+            <path key={a.key} d={a.path} fill="none" stroke={a.color}
+              strokeWidth={stroke} strokeLinecap="round">
+              <title>{a.label} : {a.value} ({Math.round(a.pct * 100)}%)</title>
+            </path>
+          ))}
+          <circle cx={cx} cy={cy} r={r - stroke / 2 - 3} fill="white" />
+          <text x={cx} y={cy - 6} textAnchor="middle" fontSize="22" fontWeight="800" fill="#0f172a">
+            {total}
+          </text>
+          <text x={cx} y={cy + 11} textAnchor="middle" fontSize="9" fill="#94a3b8">
+            commandes
+          </text>
+        </svg>
+      </div>
+      {/* Légende */}
+      <div className="space-y-1.5">
+        {arcs.filter(a => a.value > 0).map(a => (
+          <div key={a.key} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors">
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: a.color }} />
+            <span className="text-sm text-slate-600 flex-1 font-medium">{a.label}</span>
+            <span className="text-sm font-bold text-slate-800">{a.value}</span>
+            <span className="text-xs text-slate-400 w-9 text-right tabular-nums">
+              {Math.round(a.pct * 100)}%
+            </span>
           </div>
         ))}
       </div>
@@ -154,244 +230,437 @@ function MiniDonut({ segments }: { segments: { label: string; value: number; col
   )
 }
 
-// ── Horizontal Bars ───────────────────────────────────────────────────────────
-function HBars({ data }: { data: { name: string; value: number; pct: number }[] }) {
-  return (
-    <div className="space-y-2.5">
-      {data.map((d) => (
-        <div key={d.name}>
-          <div className="flex justify-between mb-1">
-            <span className="text-[11px] text-slate-600 capitalize">{d.name}</span>
-            <span className="text-[11px] font-semibold text-slate-800">{d.value}</span>
-          </div>
-          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#D4AF6A] to-[#C8956C] transition-all duration-700"
-              style={{ width: `${d.pct}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Status config ─────────────────────────────────────────────────────────────
-const STATUS_CFG: Record<string, { cls: string; icon: React.ElementType; dot: string }> = {
-  pending:    { cls: 'bg-yellow-100 text-yellow-700', icon: Clock,         dot: '#EAB308' },
-  confirmed:  { cls: 'bg-blue-100 text-blue-700',     icon: CheckCircle,   dot: '#3B82F6' },
-  processing: { cls: 'bg-purple-100 text-purple-700', icon: Package,       dot: '#8B5CF6' },
-  shipped:    { cls: 'bg-indigo-100 text-indigo-700', icon: TrendingUp,    dot: '#6366F1' },
-  delivered:  { cls: 'bg-green-100 text-green-700',   icon: CheckCircle,   dot: '#10B981' },
-  cancelled:  { cls: 'bg-red-100 text-red-700',       icon: AlertCircle,   dot: '#EF4444' },
-}
-
-// ── Dashboard ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// DASHBOARD PAGE
+// ─────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const orders = useCustomerStore((s) => s.orders)
+  const { orders, loadDemoData } = useCustomerStore()
   const { products } = useAdminProductsStore()
 
-  const totalRevenue = orders.reduce((s, o) => s + o.total, 0)
-  const activeProducts = products.filter((p) => p.isActive).length
-  const avgOrder = orders.length ? totalRevenue / orders.length : 0
+  useEffect(() => {
+    if (orders.length === 0) loadDemoData(seedCustomers, seedOrders)
+  }, [orders.length, loadDemoData])
 
-  // Last 14 days area chart
-  const areaData = useMemo(() => {
-    return Array.from({ length: 14 }, (_, i) => {
-      const d = new Date()
-      d.setDate(d.getDate() - (13 - i))
-      const key = d.toISOString().split('T')[0]
-      const dayOrders = orders.filter((o) => o.createdAt.startsWith(key))
-      return {
-        label: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-        value: dayOrders.reduce((s, o) => s + o.total, 0),
-        count: dayOrders.length,
-      }
-    })
-  }, [orders])
+  const [period, setPeriod] = useState<7 | 14 | 30>(14)
 
-  // Sparkline data (7 days)
-  const sparkRevenue = areaData.slice(-7).map((d) => d.value)
-  const sparkOrders = areaData.slice(-7).map((d) => d.count)
+  // ── Core metrics
+  const totalRevenue   = orders.reduce((s, o) => s + o.total, 0)
+  const activeProducts = products.filter(p => p.isActive).length
+  const avgOrder       = orders.length ? Math.round(totalRevenue / orders.length) : 0
+  const lowStock       = products.filter(p => p.isActive && p.stock <= 5)
+  const pendingCount   = orders.filter(o => o.status === 'pending').length
+  const uniqueClients  = new Set(orders.map(o => o.address.email)).size
 
-  // Orders by status (donut)
+  // ── Area chart
+  const areaData = useMemo(() => Array.from({ length: period }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (period - 1 - i))
+    const key = d.toISOString().split('T')[0]
+    const day = orders.filter(o => o.createdAt.startsWith(key))
+    return {
+      label: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+      value: day.reduce((s, o) => s + o.total, 0),
+      count: day.length,
+    }
+  }), [orders, period])
+
+  // ── Previous period
+  const prevData = useMemo(() => Array.from({ length: period }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (period * 2 - 1 - i))
+    const key = d.toISOString().split('T')[0]
+    const day = orders.filter(o => o.createdAt.startsWith(key))
+    return { revenue: day.reduce((s, o) => s + o.total, 0), count: day.length }
+  }), [orders, period])
+
+  const currRevenue    = areaData.reduce((s, d) => s + d.value, 0)
+  const prevRevenue    = prevData.reduce((s, d) => s + d.revenue, 0)
+  const currOrderCount = areaData.reduce((s, d) => s + d.count, 0)
+  const prevOrderCount = prevData.reduce((s, d) => s + d.count, 0)
+  const activeDays     = areaData.filter(d => d.value > 0).length
+
+  const sparkRev    = areaData.slice(-7).map(d => d.value)
+  const sparkOrders = areaData.slice(-7).map(d => d.count)
+
+  // ── Status donut data
   const statusSegments = useMemo(() => {
     const map: Record<string, number> = {}
-    orders.forEach((o) => { map[o.status] = (map[o.status] ?? 0) + 1 })
-    return Object.entries(map).map(([status, value]) => ({
-      label: ORDER_STATUS_LABELS[status as keyof typeof ORDER_STATUS_LABELS] ?? status,
-      value,
-      color: STATUS_CFG[status]?.dot ?? '#94A3B8',
+    orders.forEach(o => { map[o.status] = (map[o.status] ?? 0) + 1 })
+    return Object.entries(STATUS_CFG).map(([key, cfg]) => ({
+      key,
+      label: ORDER_STATUS_LABELS[key as keyof typeof ORDER_STATUS_LABELS] ?? key,
+      value: map[key] ?? 0,
+      color: cfg.dot,
     })).sort((a, b) => b.value - a.value)
   }, [orders])
 
-  // Stock by category (bars)
-  const categoryBars = useMemo(() => {
-    const map: Record<string, number> = {}
-    products.forEach((p) => { map[p.category] = (map[p.category] ?? 0) + p.stock })
-    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 6)
-    const max = Math.max(...entries.map((e) => e[1]), 1)
-    return entries.map(([name, value]) => ({ name, value, pct: (value / max) * 100 }))
-  }, [products])
+  // ── Top products with images
+  const topProducts = useMemo(() => {
+    const map = new Map<string, { name: string; revenue: number; qty: number; image: string }>()
+    orders.forEach(o => o.items.forEach(item => {
+      const existing = map.get(item.productId) ?? {
+        name: item.name, revenue: 0, qty: 0,
+        image: getProductById(item.productId)?.images[0] ?? '',
+      }
+      map.set(item.productId, {
+        ...existing,
+        revenue: existing.revenue + item.price * item.quantity,
+        qty:     existing.qty + item.quantity,
+      })
+    }))
+    const list = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+    const maxRev = Math.max(...list.map(p => p.revenue), 1)
+    return list.map(p => ({ ...p, pct: (p.revenue / maxRev) * 100 }))
+  }, [orders])
 
-  // Recent orders
+  // ── Recent orders
   const recentOrders = useMemo(() =>
     [...orders]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 6),
+      .slice(0, 7),
     [orders]
   )
 
-  const kpis = [
-    {
-      icon: TrendingUp, label: 'Chiffre d\'affaires', value: formatPrice(totalRevenue),
-      sub: 'total cumulé', color: 'bg-[#D4AF6A]/15 text-[#D4AF6A]', spark: sparkRevenue, sparkColor: '#D4AF6A',
-    },
-    {
-      icon: ShoppingCart, label: 'Commandes', value: String(orders.length),
-      sub: `moy. ${formatPrice(Math.round(avgOrder))}`, color: 'bg-blue-100 text-blue-600', spark: sparkOrders, sparkColor: '#3B82F6',
-    },
-    {
-      icon: Package, label: 'Produits actifs', value: String(activeProducts),
-      sub: `${products.length} au total`, color: 'bg-purple-100 text-purple-600', spark: null, sparkColor: '',
-    },
-    {
-      icon: Tag, label: 'Codes promo', value: String(promoCodes.length),
-      sub: 'disponibles', color: 'bg-emerald-100 text-emerald-600', spark: null, sparkColor: '',
-    },
-  ]
+  const todayLabel = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-8">
 
-        {/* Welcome */}
-        <div className="flex items-center justify-between">
+        {/* ══════════════ HEADER ══════════════ */}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-playfair)' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-[11px] text-slate-400 font-medium tracking-wide"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Boutique active
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900" style={{ fontFamily: 'var(--font-playfair)' }}>
               Tableau de bord
-            </h2>
-            <p className="text-sm text-slate-500 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </h1>
+            <p className="text-sm text-slate-400 mt-0.5 capitalize" style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              {todayLabel}
             </p>
           </div>
-          <Link href="/admin/analytics"
-            className="flex items-center gap-2 text-xs text-[#D4AF6A] hover:text-[#C8956C] border border-[#D4AF6A]/30 hover:border-[#D4AF6A] rounded-xl px-4 py-2 transition-all"
-            style={{ fontFamily: 'var(--font-dm-sans)' }}>
-            <BarChart3 className="w-3.5 h-3.5" /> Analytics complètes
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            {pendingCount > 0 && (
+              <Link href="/admin/orders"
+                className="flex items-center gap-1.5 bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs font-semibold px-3 py-2 rounded-xl hover:bg-yellow-100 transition-colors"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                <Clock className="w-3.5 h-3.5" />
+                {pendingCount} en attente
+              </Link>
+            )}
+            <button
+              onClick={() => { loadDemoData(seedCustomers, seedOrders); toast.success('Données rechargées !') }}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-xl hover:border-[#D4AF6A]/40 hover:bg-slate-50 transition-all"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              <Sparkles className="w-3.5 h-3.5 text-[#D4AF6A]" /> Démo
+            </button>
+          </div>
         </div>
 
-        {/* KPI cards */}
+        {/* ══════════════ KPI CARDS ══════════════ */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {kpis.map(({ icon: Icon, label, value, sub, color, spark, sparkColor }) => (
-            <div key={label} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                {spark && spark.some((v) => v > 0) && (
-                  <Sparkline values={spark} color={sparkColor} />
-                )}
-              </div>
-              <p className="text-2xl font-bold text-slate-900 leading-none" style={{ fontFamily: 'var(--font-playfair)' }}>
-                {value}
-              </p>
-              <p className="text-xs text-slate-500 mt-1.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>{label}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>{sub}</p>
-            </div>
-          ))}
-        </div>
 
-        {/* Area chart — Revenue 14 days */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                Revenus — 14 derniers jours
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {areaData.filter((d) => d.value > 0).length} jour{areaData.filter((d) => d.value > 0).length !== 1 ? 's' : ''} avec des ventes
-              </p>
+          {/* CA — gold gradient */}
+          <div className="col-span-2 lg:col-span-1 relative bg-gradient-to-br from-[#fdf8ef] to-white rounded-2xl border border-[#D4AF6A]/20 p-5 shadow-sm overflow-hidden group hover:shadow-md transition-shadow">
+            <div className="absolute -top-8 -right-8 w-28 h-28 rounded-full bg-[#D4AF6A]/8 group-hover:bg-[#D4AF6A]/12 transition-colors pointer-events-none" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-9 h-9 rounded-xl bg-[#D4AF6A]/15 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-[#D4AF6A]" />
+              </div>
+              <Sparkline values={sparkRev} color="#D4AF6A" />
             </div>
-            <div className="text-right">
-              <p className="text-lg font-bold text-[#D4AF6A]" style={{ fontFamily: 'var(--font-playfair)' }}>
-                {formatPrice(totalRevenue)}
-              </p>
-              <p className="text-[10px] text-slate-400">total</p>
+            <p className="text-[10px] text-[#C8956C] uppercase tracking-widest mb-1 font-medium"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Chiffre d&apos;affaires
+            </p>
+            <p className="text-[1.6rem] font-bold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-playfair)' }}>
+              {formatPrice(totalRevenue)}
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[10px] text-slate-400">{period}j : {formatPrice(currRevenue)}</span>
+              <TrendBadge current={currRevenue} previous={prevRevenue} />
             </div>
           </div>
+
+          {/* Commandes */}
+          <div className="relative bg-white rounded-2xl border border-slate-100 p-5 shadow-sm overflow-hidden group hover:shadow-md transition-shadow">
+            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-blue-50 group-hover:bg-blue-100/50 transition-colors pointer-events-none" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-blue-500" />
+              </div>
+              <Sparkline values={sparkOrders} color="#3B82F6" />
+            </div>
+            <p className="text-[10px] text-blue-400 uppercase tracking-widest mb-1 font-medium"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Commandes
+            </p>
+            <p className="text-[1.6rem] font-bold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-playfair)' }}>
+              {orders.length}
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[10px] text-slate-400">moy. {formatPrice(avgOrder)}</span>
+              <TrendBadge current={currOrderCount} previous={prevOrderCount} />
+            </div>
+          </div>
+
+          {/* Clients */}
+          <div className="relative bg-white rounded-2xl border border-slate-100 p-5 shadow-sm overflow-hidden group hover:shadow-md transition-shadow">
+            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-purple-50 group-hover:bg-purple-100/50 transition-colors pointer-events-none" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
+                <Users className="w-4 h-4 text-purple-500" />
+              </div>
+              {lowStock.length > 0 && (
+                <span className="text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+                  {lowStock.length} alerte{lowStock.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-1 font-medium"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Clients actifs
+            </p>
+            <p className="text-[1.6rem] font-bold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-playfair)' }}>
+              {uniqueClients}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-2">{activeProducts} produits en ligne</p>
+          </div>
+
+          {/* Codes promo */}
+          <div className="relative bg-white rounded-2xl border border-slate-100 p-5 shadow-sm overflow-hidden group hover:shadow-md transition-shadow">
+            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-emerald-50 group-hover:bg-emerald-100/50 transition-colors pointer-events-none" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+                <Tag className="w-4 h-4 text-emerald-500" />
+              </div>
+            </div>
+            <p className="text-[10px] text-emerald-500 uppercase tracking-widest mb-1 font-medium"
+              style={{ fontFamily: 'var(--font-dm-sans)' }}>
+              Codes promo
+            </p>
+            <p className="text-[1.6rem] font-bold text-slate-900 leading-tight" style={{ fontFamily: 'var(--font-playfair)' }}>
+              {promoCodes.length}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-2">
+              {promoCodes.filter(c => new Date(c.validUntil) >= new Date()).length} actifs
+            </p>
+          </div>
+        </div>
+
+        {/* ══════════════ REVENUE CHART ══════════════ */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1"
+                style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                Évolution des revenus
+              </p>
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold text-[#D4AF6A]" style={{ fontFamily: 'var(--font-playfair)' }}>
+                  {formatPrice(currRevenue)}
+                </span>
+                <TrendBadge current={currRevenue} previous={prevRevenue} />
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {activeDays} jour{activeDays !== 1 ? 's' : ''} avec ventes sur {period}j
+                {prevRevenue > 0 && (
+                  <span className="ml-2 text-slate-300">· période préc. {formatPrice(prevRevenue)}</span>
+                )}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-50 rounded-xl p-1 shrink-0">
+              {([7, 14, 30] as const).map(p => (
+                <button key={p} onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    period === p
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                  style={{ fontFamily: 'var(--font-dm-sans)' }}>
+                  {p}j
+                </button>
+              ))}
+            </div>
+          </div>
+
           {orders.length > 0 ? (
             <AreaChart data={areaData} />
           ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-300">
-              <TrendingUp className="w-10 h-10 mb-2" />
-              <p className="text-sm text-slate-400">Les données apparaîtront après les premières commandes</p>
+            <div className="flex flex-col items-center justify-center py-14 gap-3">
+              <TrendingUp className="w-10 h-10 text-slate-200" />
+              <p className="text-sm text-slate-400">Chargez les données démo pour explorer le graphique</p>
             </div>
           )}
         </div>
 
-        {/* Row 3 : orders status + category bars + recent orders */}
+        {/* ══════════════ 3-COL ANALYTICS ══════════════ */}
         <div className="grid lg:grid-cols-3 gap-5">
 
-          {/* Donut — statuts */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                Statuts commandes
-              </h3>
-              <Link href="/admin/orders" className="text-[10px] text-[#D4AF6A] hover:underline">
+          {/* ── Statuts commandes */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-slate-900"
+                style={{ fontFamily: 'var(--font-playfair)' }}>Statuts commandes</h3>
+              <Link href="/admin/orders"
+                className="text-xs font-semibold text-[#D4AF6A] hover:text-[#C8956C] transition-colors">
                 Gérer →
               </Link>
             </div>
-            <MiniDonut segments={statusSegments} />
+
+            <StatusDonut segments={statusSegments} />
+
+            {orders.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-slate-100 grid grid-cols-3 gap-3">
+                {[
+                  {
+                    label: 'En cours',
+                    value: orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length,
+                    cls: 'text-blue-600',
+                    bg: 'bg-blue-50',
+                  },
+                  {
+                    label: 'Livrées',
+                    value: orders.filter(o => o.status === 'delivered').length,
+                    cls: 'text-emerald-600',
+                    bg: 'bg-emerald-50',
+                  },
+                  {
+                    label: 'Annulées',
+                    value: orders.filter(o => o.status === 'cancelled').length,
+                    cls: 'text-red-500',
+                    bg: 'bg-red-50',
+                  },
+                ].map(s => (
+                  <div key={s.label} className={`${s.bg} rounded-xl py-3 px-2 text-center`}>
+                    <p className={`text-2xl font-bold ${s.cls}`}
+                      style={{ fontFamily: 'var(--font-playfair)' }}>
+                      {s.value}
+                    </p>
+                    <p className="text-xs text-slate-500 font-medium mt-1">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Bars — stock par catégorie */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                Stock par catégorie
-              </h3>
-              <Link href="/admin/products" className="text-[10px] text-[#D4AF6A] hover:underline">
-                Gérer →
-              </Link>
+          {/* ── Top ventes */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-slate-900"
+                style={{ fontFamily: 'var(--font-playfair)' }}>Top ventes</h3>
             </div>
-            <HBars data={categoryBars} />
-          </div>
 
-          {/* Recent orders */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-900 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                Commandes récentes
-              </h3>
-              <Link href="/admin/orders" className="text-xs text-[#D4AF6A] hover:underline flex items-center gap-1">
-                Tout voir <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-            {recentOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                <ShoppingCart className="w-8 h-8 mb-2 opacity-40" />
-                <p className="text-xs">Aucune commande</p>
+            {topProducts.length > 0 ? (
+              <div className="space-y-4">
+                {topProducts.map((p, i) => (
+                  <div key={p.name} className="flex items-center gap-3.5">
+                    {/* Rang */}
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                      i === 0 ? 'bg-[#D4AF6A] text-white' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {i + 1}
+                    </span>
+                    {/* Image */}
+                    <div className="w-11 h-13 rounded-xl overflow-hidden shrink-0 border border-slate-100 bg-slate-50"
+                      style={{ height: 52 }}>
+                      {p.image ? (
+                        <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-4 h-4 text-slate-300" />
+                        </div>
+                      )}
+                    </div>
+                    {/* Infos */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{p.name}</p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#D4AF6A] to-[#C8956C] transition-all duration-700"
+                            style={{ width: `${p.pct}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-slate-400 shrink-0 tabular-nums">
+                          {p.qty} vendu{p.qty > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Revenus */}
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-[#D4AF6A]"
+                        style={{ fontFamily: 'var(--font-playfair)' }}>
+                        {formatPrice(p.revenue)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="divide-y divide-slate-50">
-                {recentOrders.map((order) => {
-                  const cfg = STATUS_CFG[order.status] ?? STATUS_CFG.pending
-                  const Icon = cfg.icon
+              <div className="flex flex-col items-center justify-center h-28 text-slate-300 gap-2">
+                <Package className="w-8 h-8" />
+                <p className="text-sm">Aucune vente enregistrée</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Commandes récentes */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900"
+                style={{ fontFamily: 'var(--font-playfair)' }}>Dernières commandes</h3>
+              <Link href="/admin/orders"
+                className="flex items-center gap-1 text-xs font-semibold text-[#D4AF6A] hover:text-[#C8956C] transition-colors">
+                Tout voir <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {recentOrders.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-12 text-slate-300 gap-2">
+                <ShoppingCart className="w-8 h-8" />
+                <p className="text-sm">Aucune commande</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50 flex-1">
+                {recentOrders.map(order => {
+                  const cfg = STATUS_CFG[order.status]
+                  const statusLabel = ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS]
                   return (
-                    <div key={order.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50 transition-colors">
-                      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: cfg.dot }} />
-                      <div className="min-w-0 flex-1">
-                        <span className="font-mono text-xs font-semibold text-slate-700">{order.number}</span>
-                        <p className="text-[10px] text-slate-400 truncate">
-                          {order.address.firstName} · {new Date(order.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                    <div key={order.id}
+                      className="flex items-center gap-3 px-6 py-3 hover:bg-slate-50/80 transition-colors">
+                      {/* Indicateur statut */}
+                      <div className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: cfg?.dot ?? '#94a3b8' }} />
+                      {/* Infos commande */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-mono text-sm font-bold text-slate-800 leading-tight">
+                          {order.number}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                          {order.address.firstName} {order.address.lastName}
+                          <span className="text-slate-300 mx-1">·</span>
+                          {new Date(order.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                         </p>
                       </div>
-                      <span className="text-xs font-bold text-[#D4AF6A] shrink-0" style={{ fontFamily: 'var(--font-playfair)' }}>
-                        {formatPrice(order.total)}
-                      </span>
+                      {/* Montant + statut */}
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-slate-800"
+                          style={{ fontFamily: 'var(--font-playfair)' }}>
+                          {formatPrice(order.total)}
+                        </p>
+                        <span className={`inline-block text-[11px] font-semibold mt-0.5 ${cfg?.text ?? 'text-slate-400'}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
                     </div>
                   )
                 })}
@@ -400,75 +669,131 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Bottom row : quick actions + low stock */}
+        {/* ══════════════ BOTTOM ROW ══════════════ */}
         <div className="grid lg:grid-cols-2 gap-5">
-          {/* Quick actions */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <h3 className="font-semibold text-slate-900 text-sm mb-4" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-              Accès rapide
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
+
+          {/* ── Alertes stock */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-slate-900"
+                style={{ fontFamily: 'var(--font-playfair)' }}>Alertes stock</h3>
+              <Link href="/admin/products?filter=lowstock"
+                className="text-xs font-semibold text-[#D4AF6A] hover:text-[#C8956C] transition-colors">
+                Voir tout →
+              </Link>
+            </div>
+
+            {lowStock.length === 0 ? (
+              <div className="flex items-center gap-4 bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
+                <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-emerald-800">Stocks suffisants</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">Aucun produit en stock critique</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {lowStock.slice(0, 5).map(p => (
+                  <div key={p.id} className="flex items-center gap-4">
+                    {/* Image */}
+                    <div className={`w-12 rounded-xl overflow-hidden shrink-0 border ${
+                      p.stock === 0 ? 'border-red-100 bg-red-50' : 'border-orange-100 bg-orange-50'
+                    }`} style={{ height: 52 }}>
+                      {p.images[0] ? (
+                        <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className={`w-4 h-4 ${p.stock === 0 ? 'text-red-300' : 'text-orange-300'}`} />
+                        </div>
+                      )}
+                    </div>
+                    {/* Nom + barre */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{p.name}</p>
+                      <div className="w-full h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${p.stock === 0 ? 'bg-red-400' : 'bg-orange-400'}`}
+                          style={{ width: `${Math.min((p.stock / 10) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    {/* Badge stock */}
+                    {p.stock === 0 ? (
+                      <span className="flex items-center gap-1.5 bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        Épuisé
+                      </span>
+                    ) : (
+                      <span className="bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1.5 rounded-full shrink-0">
+                        {p.stock} u.
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Accès rapide */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h3 className="text-base font-bold text-slate-900 mb-5"
+              style={{ fontFamily: 'var(--font-playfair)' }}>Accès rapide</h3>
+            <div className="grid grid-cols-2 gap-3">
               {[
-                { href: '/admin/products', icon: Package, label: 'Produits', sub: `${activeProducts} actifs`, color: 'text-purple-600 bg-purple-50' },
-                { href: '/admin/orders', icon: ShoppingCart, label: 'Commandes', sub: `${orders.length} total`, color: 'text-blue-600 bg-blue-50' },
-                { href: '/admin/content', icon: TrendingUp, label: 'Hero section', sub: 'Modifier les slides', color: 'text-[#D4AF6A] bg-[#D4AF6A]/10' },
-                { href: '/admin/promotions', icon: Tag, label: 'Promotions', sub: `${promoCodes.length} codes`, color: 'text-emerald-600 bg-emerald-50' },
-              ].map(({ href, icon: Icon, label, sub, color }) => (
+                {
+                  href: '/admin/products',
+                  icon: Package,
+                  label: 'Produits',
+                  sub: `${activeProducts} actifs · ${products.length} au total`,
+                  iconCls: 'text-purple-600',
+                  bg: 'bg-purple-50',
+                  border: 'hover:border-purple-200',
+                },
+                {
+                  href: '/admin/orders',
+                  icon: ShoppingCart,
+                  label: 'Commandes',
+                  sub: `${orders.length} · ${pendingCount} en attente`,
+                  iconCls: 'text-blue-600',
+                  bg: 'bg-blue-50',
+                  border: 'hover:border-blue-200',
+                },
+                {
+                  href: '/admin/customers',
+                  icon: Users,
+                  label: 'Clients',
+                  sub: `${uniqueClients} client${uniqueClients > 1 ? 's' : ''} actif${uniqueClients > 1 ? 's' : ''}`,
+                  iconCls: 'text-emerald-600',
+                  bg: 'bg-emerald-50',
+                  border: 'hover:border-emerald-200',
+                },
+                {
+                  href: '/admin/promotions',
+                  icon: Tag,
+                  label: 'Promotions',
+                  sub: `${promoCodes.filter(c => new Date(c.validUntil) >= new Date()).length} codes actifs`,
+                  iconCls: 'text-orange-600',
+                  bg: 'bg-orange-50',
+                  border: 'hover:border-orange-200',
+                },
+              ].map(({ href, icon: Icon, label, sub, iconCls, bg, border }) => (
                 <Link key={href} href={href}
-                  className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-100 hover:border-[#D4AF6A]/30 hover:bg-slate-50 transition-all group">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
-                    <Icon className="w-4 h-4" />
+                  className={`flex items-center gap-4 p-4 rounded-2xl border border-slate-100 ${border} hover:bg-slate-50 transition-all group`}>
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${bg} group-hover:scale-105 transition-transform`}>
+                    <Icon className={`w-5 h-5 ${iconCls}`} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-800">{label}</p>
-                    <p className="text-[10px] text-slate-400 truncate">{sub}</p>
+                    <p className="text-sm font-bold text-slate-800">{label}</p>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{sub}</p>
                   </div>
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* Low stock alert */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-slate-900 text-sm" style={{ fontFamily: 'var(--font-dm-sans)' }}>
-                Stock faible
-              </h3>
-              <Link href="/admin/products?filter=lowstock" className="text-[10px] text-[#D4AF6A] hover:underline">
-                Voir tout →
-              </Link>
-            </div>
-            {(() => {
-              const lowStock = products.filter((p) => p.isActive && p.stock <= 5).slice(0, 5)
-              if (lowStock.length === 0) return (
-                <div className="flex items-center gap-3 bg-emerald-50 rounded-xl p-4">
-                  <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
-                  <p className="text-xs text-emerald-700">Tous les stocks sont suffisants ✓</p>
-                </div>
-              )
-              return (
-                <div className="space-y-2">
-                  {lowStock.map((p) => (
-                    <div key={p.id} className={`flex items-center gap-3 p-3 rounded-xl border ${p.stock === 0 ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'}`}>
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${p.stock === 0 ? 'bg-red-500' : 'bg-orange-400'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-800 truncate">{p.name}</p>
-                        <div className="w-full bg-white/60 rounded-full h-1 mt-1">
-                          <div className={`h-1 rounded-full ${p.stock === 0 ? 'bg-red-400' : 'bg-orange-400'}`}
-                            style={{ width: `${Math.min((p.stock / 10) * 100, 100)}%` }} />
-                        </div>
-                      </div>
-                      <span className={`text-xs font-bold shrink-0 ${p.stock === 0 ? 'text-red-600' : 'text-orange-600'}`}>
-                        {p.stock === 0 ? 'Épuisé' : `${p.stock} u.`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
         </div>
-
       </div>
     </AdminLayout>
   )

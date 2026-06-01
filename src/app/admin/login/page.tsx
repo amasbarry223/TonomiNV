@@ -46,7 +46,10 @@ export default function AdminLogin() {
           <div className="p-8 sm:p-10">
             {/* Logo */}
             <div className="flex flex-col items-center mb-8">
-              <Logo variant="dark-bg" className="h-12 w-auto mb-3" />
+              <Logo
+                variant="dark-bg"
+                className="h-28 sm:h-32 w-auto max-w-[340px] object-contain mb-5 drop-shadow-[0_2px_16px_rgba(212,175,106,0.3)]"
+              />
               <div className="flex items-center gap-1.5 bg-[#D4AF6A]/10 border border-[#D4AF6A]/20 rounded-full px-3 py-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF6A]" />
                 <span className="text-[10px] text-[#D4AF6A] font-semibold uppercase tracking-widest">

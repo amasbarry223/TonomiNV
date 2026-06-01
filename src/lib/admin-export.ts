@@ -1,4 +1,7 @@
-export function exportToCSV(data: Record<string, unknown>[], filename: string) {
+export function exportToCSV(
+  data: Array<Record<string, unknown>>,
+  filename: string
+) {
   if (!data.length) return
   const keys = Object.keys(data[0])
   const rows = [

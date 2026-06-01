@@ -7,18 +7,20 @@ import { useAdminStore } from '@/stores/admin-store'
 import Logo from '@/components/shared/Logo'
 import NotificationCenter from '@/components/admin/NotificationCenter'
 import GlobalSearch from '@/components/admin/GlobalSearch'
+import { useHydrated } from '@/lib/use-hydrated'
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Tag,
   Image, LogOut, Menu, X, ChevronRight, Bell, Settings,
-  BarChart3, ExternalLink,
+  ExternalLink, Layers, Star,
 } from 'lucide-react'
 
 const NAV = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Tableau de bord', group: 'main' },
-  { href: '/admin/analytics', icon: BarChart3, label: 'Analytics', group: 'main' },
   { href: '/admin/products', icon: Package, label: 'Produits', group: 'store' },
+  { href: '/admin/categories', icon: Layers, label: 'Catégories', group: 'store' },
   { href: '/admin/orders', icon: ShoppingCart, label: 'Commandes', group: 'store' },
   { href: '/admin/customers', icon: Users, label: 'Clients', group: 'store' },
+  { href: '/admin/reviews', icon: Star, label: 'Avis produits', group: 'store' },
   { href: '/admin/promotions', icon: Tag, label: 'Promotions', group: 'store' },
   { href: '/admin/content', icon: Image, label: 'Contenu Hero', group: 'config' },
   { href: '/admin/settings', icon: Settings, label: 'Paramètres', group: 'config' },
@@ -35,12 +37,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const { isAuthenticated, logout } = useAdminStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const hydrated = useHydrated()
 
   useEffect(() => {
-    if (!isAuthenticated) router.replace('/admin/login')
-  }, [isAuthenticated, router])
+    if (hydrated && !isAuthenticated) router.replace('/admin/login')
+  }, [hydrated, isAuthenticated, router])
 
-  if (!isAuthenticated) return null
+  if (!hydrated || !isAuthenticated) return null
 
   const handleLogout = () => {
     logout()
@@ -59,11 +62,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-60 bg-slate-950 border-r border-slate-800 flex flex-col transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {/* Logo */}
-        <div className="flex items-center justify-between px-5 py-5 border-b border-slate-800">
-          <Logo variant="dark-bg" className="h-9 w-auto" />
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-600 hover:text-white transition-colors">
+        <div className="relative border-b border-slate-800 px-3 py-8">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden absolute right-3 top-3 p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Fermer le menu"
+          >
             <X className="w-5 h-5" />
           </button>
+          <div className="flex w-full items-center justify-center">
+            <Logo
+              variant="dark-bg"
+              className="h-24 w-auto max-w-[216px] object-contain drop-shadow-[0_2px_16px_rgba(212,175,106,0.3)]"
+            />
+          </div>
         </div>
 
         {/* Nav links */}

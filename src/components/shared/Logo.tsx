@@ -12,7 +12,7 @@ export default function Logo({ variant = 'default', className = 'h-10 sm:h-12 w-
 
   if (variant === 'dark-bg') {
     return failed ? (
-      <span className="font-bold tracking-[0.25em] text-amber-400 text-xl">TONOMI</span>
+      <span className="font-bold tracking-[0.25em] text-amber-400 text-3xl text-center">TONOMI</span>
     ) : (
       <img
         src="/logo.png"

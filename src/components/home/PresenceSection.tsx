@@ -18,30 +18,11 @@ import {
   X,
 } from 'lucide-react'
 import Image from 'next/image'
+import { useAdminPresenceStore } from '@/stores/admin-presence-store'
 
 const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
-interface CountryInfo {
-  id: string
-  name: string
-  capital: string
-  flagCode: string
-  coordinates: [number, number]
-  since: string
-  status: 'actif' | 'en développement'
-  clients: string
-}
-
-const activeCountries: CountryInfo[] = [
-  { id: '466', name: 'Mali', capital: 'Bamako', flagCode: 'ml', coordinates: [-7.99, 12.65], since: '2019', status: 'actif', clients: '2 000+' },
-  { id: '686', name: 'Sénégal', capital: 'Dakar', flagCode: 'sn', coordinates: [-17.45, 14.69], since: '2021', status: 'actif', clients: '800+' },
-  { id: '384', name: "Côte d'Ivoire", capital: 'Abidjan', flagCode: 'ci', coordinates: [-5.55, 5.35], since: '2022', status: 'actif', clients: '600+' },
-  { id: '854', name: 'Burkina Faso', capital: 'Ouagadougou', flagCode: 'bf', coordinates: [-1.53, 12.37], since: '2022', status: 'actif', clients: '400+' },
-  { id: '324', name: 'Guinée', capital: 'Conakry', flagCode: 'gn', coordinates: [-13.68, 9.95], since: '2023', status: 'actif', clients: '300+' },
-  { id: '562', name: 'Niger', capital: 'Niamey', flagCode: 'ne', coordinates: [2.11, 13.51], since: '2023', status: 'actif', clients: '250+' },
-]
-
-const activeIds = new Set(activeCountries.map((c) => c.id))
+type CountryInfo = ReturnType<typeof useAdminPresenceStore.getState>['presence']['countries'][number]
 
 function buildGeographyStyle(isActive: boolean) {
   return {
@@ -99,21 +80,24 @@ const MapGeography = memo(function MapGeography({
   )
 })
 
-const stats = [
-  { icon: Globe2, value: '6', label: 'Pays', description: 'présence internationale' },
-  { icon: Truck, value: '5 000+', label: 'Livraisons', description: 'dans la sous-région' },
-  { icon: Users, value: '5 000+', label: 'Clientes', description: 'satisfaites' },
-]
+const STAT_ICON: Record<string, React.ElementType> = {
+  globe: Globe2,
+  truck: Truck,
+  users: Users,
+}
 
 export default function PresenceSection() {
+  const presence = useAdminPresenceStore((s) => s.presence)
   const [hoveredCountry, setHoveredCountry] = useState<CountryInfo | null>(null)
   const [selectedCountry, setSelectedCountry] = useState<CountryInfo | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+  const activeCountries = useMemo(() => presence.countries, [presence.countries])
+  const activeIds = useMemo(() => new Set(activeCountries.map((c) => c.id)), [activeCountries])
 
   const handleGeographyMouseEnter = useCallback((geo: { id: string }) => {
     const country = activeCountries.find((c) => c.id === geo.id)
     if (country) setHoveredCountry(country)
-  }, [])
+  }, [activeCountries])
 
   const handleGeographyMouseLeave = useCallback(() => {
     setHoveredCountry(null)
@@ -129,6 +113,8 @@ export default function PresenceSection() {
     })
   }, [])
 
+  if (!presence.enabled) return null
+
   return (
     <section className="py-16 sm:py-24 bg-cream overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -142,16 +128,15 @@ export default function PresenceSection() {
           transition={{ duration: 0.6 }}
         >
           <span className="font-[family-name:var(--font-dm-sans)] text-sm text-gold tracking-[0.3em] uppercase">
-            Notre Présence
+            {presence.headerKicker}
           </span>
           <h2 className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl lg:text-5xl font-bold text-text-dark mt-3 leading-tight">
-            Là où{' '}
-            <span className="text-gold-gradient">TONOMI</span>{' '}
-            rayonne
+            {presence.titlePrefix}{' '}
+            <span className="text-gold-gradient">{presence.titleBrand}</span>{' '}
+            {presence.titleSuffix}
           </h2>
           <p className="font-[family-name:var(--font-dm-sans)] text-text-mid mt-4 max-w-2xl mx-auto leading-relaxed">
-            De Bamako au monde, nous apportons l&apos;élégance africaine aux femmes qui osent.
-            Découvrez les pays où nos créations font briller chaque jour.
+            {presence.subtitle}
           </p>
         </motion.div>
 
@@ -163,7 +148,9 @@ export default function PresenceSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
-          {stats.map((stat, index) => (
+          {presence.stats.map((stat, index) => {
+            const Icon = STAT_ICON[stat.iconKey] ?? Globe2
+            return (
             <motion.div
               key={stat.label}
               className="glass-card p-4 sm:p-6 text-center warm-shadow"
@@ -173,7 +160,7 @@ export default function PresenceSection() {
               transition={{ duration: 0.5, delay: 0.15 + index * 0.1 }}
               whileHover={{ y: -4 }}
             >
-              <stat.icon className="w-6 h-6 text-gold mx-auto mb-2" />
+              <Icon className="w-6 h-6 text-gold mx-auto mb-2" />
               <p className="font-[family-name:var(--font-playfair)] text-2xl sm:text-3xl font-bold text-gold">
                 {stat.value}
               </p>
@@ -184,7 +171,7 @@ export default function PresenceSection() {
                 {stat.description}
               </p>
             </motion.div>
-          ))}
+          )})}
         </motion.div>
 
         {/* ── Map + Country List ── */}

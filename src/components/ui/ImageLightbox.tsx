@@ -4,6 +4,7 @@ import { useEffect, useCallback, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, ShoppingBag } from 'lucide-react'
+import { useHydrated } from '@/lib/use-hydrated'
 
 interface ImageLightboxProps {
   images: string[]
@@ -20,15 +21,15 @@ export default function ImageLightbox({
 }: ImageLightboxProps) {
   const [idx, setIdx] = useState(initialIndex)
   const [zoom, setZoom] = useState(1)
-  const [mounted, setMounted] = useState(false)
+  const hydrated = useHydrated()
   const [dragStart, setDragStart] = useState<number | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
-    setMounted(true)
+    if (!hydrated) return
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
-  }, [])
+  }, [hydrated])
 
   const prev = useCallback(() => {
     setZoom(1)
@@ -52,7 +53,7 @@ export default function ImageLightbox({
     return () => window.removeEventListener('keydown', handle)
   }, [onClose, prev, next])
 
-  if (!mounted) return null
+  if (!hydrated) return null
 
   const content = (
     <motion.div
@@ -114,7 +115,10 @@ export default function ImageLightbox({
         onTouchEnd={(e) => {
           if (dragStart === null) return
           const diff = e.changedTouches[0].clientX - dragStart
-          if (Math.abs(diff) > 50) diff < 0 ? next() : prev()
+          if (Math.abs(diff) > 50) {
+            if (diff < 0) next()
+            else prev()
+          }
           setDragStart(null)
         }}
       >

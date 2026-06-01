@@ -17,6 +17,9 @@ node_modules
 /.next/
 /out/
 
+# uploads (generated at runtime)
+/public/uploads/
+
 # production
 /build
 

@@ -28,7 +28,9 @@ import {
 } from '@/components/ui/accordion'
 import { Progress } from '@/components/ui/progress'
 import { ProductImage } from '@/components/ui/product-image'
-import { getProductById, getProductsByCategory, type Product } from '@/data/products'
+import { getProductsByCategory, type Product } from '@/data/products'
+import { getProductCareTips, getProductSizeGuide } from '@/lib/product-content'
+import { resolveProductById } from '@/lib/resolve-product'
 import { categories as staticCategories, type Category } from '@/data/categories'
 import { useCartStore } from '@/stores/cart-store'
 import { useWishlistStore } from '@/stores/wishlist-store'
@@ -82,7 +84,7 @@ const mockReviews = [
 
 export default function ProductPage() {
   const { selectedProductId, goCatalogue } = useNavStore()
-  const product = selectedProductId ? getProductById(selectedProductId) ?? null : null
+  const product = selectedProductId ? resolveProductById(selectedProductId) ?? null : null
 
   if (!selectedProductId) {
     return (
@@ -629,10 +631,9 @@ function ProductDetail({ product }: { product: Product }) {
                   <p className="mb-2"><strong>Matière :</strong> {product.material}</p>
                   <p className="mb-1">Conseils d&apos;entretien :</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>Éviter le contact avec l&apos;eau et les parfums</li>
-                    <li>Ranger dans un endroit sec à l&apos;abri de la lumière</li>
-                    <li>Nettoyer délicatement avec un chiffon doux</li>
-                    <li>Conserver dans sa pochette TONOMI d&apos;origine</li>
+                    {getProductCareTips(product).map((tip) => (
+                      <li key={tip}>{tip}</li>
+                    ))}
                   </ul>
                 </AccordionContent>
               </AccordionItem>
@@ -652,26 +653,16 @@ function ProductDetail({ product }: { product: Product }) {
                         </tr>
                       </thead>
                       <tbody>
-                        <tr className="border-b border-gold/10">
-                          <td className="py-2 pr-4">S</td>
-                          <td className="py-2 pr-4">14-16 cm</td>
-                          <td className="py-2">Fin</td>
-                        </tr>
-                        <tr className="border-b border-gold/10">
-                          <td className="py-2 pr-4">M</td>
-                          <td className="py-2 pr-4">16-18 cm</td>
-                          <td className="py-2">Standard</td>
-                        </tr>
-                        <tr className="border-b border-gold/10">
-                          <td className="py-2 pr-4">L</td>
-                          <td className="py-2 pr-4">18-20 cm</td>
-                          <td className="py-2">Large</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 pr-4">XL</td>
-                          <td className="py-2 pr-4">20-22 cm</td>
-                          <td className="py-2">Très large</td>
-                        </tr>
+                        {getProductSizeGuide(product).map((row, i, rows) => (
+                          <tr
+                            key={`${row.size}-${i}`}
+                            className={i < rows.length - 1 ? 'border-b border-gold/10' : ''}
+                          >
+                            <td className="py-2 pr-4 font-medium">{row.size}</td>
+                            <td className="py-2 pr-4">{row.measure}</td>
+                            <td className="py-2">{row.fit}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
